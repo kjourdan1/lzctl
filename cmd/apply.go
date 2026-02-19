@@ -19,7 +19,7 @@ var applyCmd = &cobra.Command{
 	Long: `Apply planned infrastructure changes.
 
 Runs 'terraform apply' across platform layers in CAF dependency order:
-  1. management-groups   (Resource Organisation)
+  1. management-groups   (Resource Organization)
   2. identity            (Identity & Access)
   3. management          (Management & Monitoring)
   4. governance          (Azure Policies)
@@ -69,7 +69,7 @@ func runApply(cmd *cobra.Command, args []string) error {
 		answer, _ := reader.ReadString('\n')
 		answer = strings.TrimSpace(strings.ToLower(answer))
 		if answer != "yes" {
-			fmt.Fprintln(os.Stderr, "\n❌ Apply cancelled.")
+			fmt.Fprintln(os.Stderr, "\n❌ Apply canceled.")
 			return nil
 		}
 		fmt.Fprintln(os.Stderr)

@@ -18,7 +18,7 @@ var planCmd = &cobra.Command{
 	Long: `Preview changes before applying.
 
 Runs 'terraform plan' across platform layers in CAF dependency order:
-  1. management-groups   (Resource Organisation)
+  1. management-groups   (Resource Organization)
   2. identity            (Identity & Access)
   3. management          (Management & Monitoring)
   4. governance          (Azure Policies)

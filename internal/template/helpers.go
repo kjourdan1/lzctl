@@ -134,7 +134,7 @@ func CIDRSubnet(parent string, newPrefix, index int) (string, error) {
 	offset := index * size
 
 	addr := uint32(base[0])<<24 | uint32(base[1])<<16 | uint32(base[2])<<8 | uint32(base[3])
-	addr += uint32(offset)
+	addr += uint32(offset) //nolint:gosec // offset is bounded by CIDR subnet size, overflow is not possible in valid subnets
 
 	result := net.IPv4(byte(addr>>24), byte(addr>>16), byte(addr>>8), byte(addr)).String()
 	return fmt.Sprintf("%s/%d", result, newPrefix), nil

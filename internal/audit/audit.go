@@ -97,14 +97,14 @@ func writeUserAudit(event Event) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return err
 	}
 	line, err := json.Marshal(event)
 	if err != nil {
 		return err
 	}
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return err
 	}
@@ -115,7 +115,7 @@ func writeUserAudit(event Event) error {
 
 func writeTenantAudit(repoRoot string, event Event) error {
 	dir := filepath.Join(repoRoot, "tenants", event.Tenant, "logs")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return err
 	}
 	file := filepath.Join(dir, fmt.Sprintf("%s-%s.json", sanitize(event.Operation), time.Now().UTC().Format("20060102-150405")))
@@ -123,7 +123,7 @@ func writeTenantAudit(repoRoot string, event Event) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(file, data, 0o644)
+	return os.WriteFile(file, data, 0o600)
 }
 
 func userAuditPath() (string, error) {

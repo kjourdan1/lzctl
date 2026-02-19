@@ -43,7 +43,7 @@ jobs:
         with:
           distribution: goreleaser
           version: "~> v2"
-          args: check --clean
+          args: check
 
   test:
     name: Test

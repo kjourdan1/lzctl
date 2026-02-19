@@ -621,7 +621,7 @@ terraform {
 %s
 %s
 
-# ── Private DNS zones (centralised in platform/connectivity) ──────────────────
+# ── Private DNS zones (centralized in platform/connectivity) ──────────────────
 data "azurerm_private_dns_zone" "acr" {
   name                = %q
   resource_group_name = data.terraform_remote_state.connectivity.outputs.private_dns_resource_group_name

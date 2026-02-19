@@ -19,7 +19,7 @@ type mockPrompter struct {
 func (m *mockPrompter) Input(label, _ string, _ survey.Validator) (string, error) {
 	m.calls = append(m.calls, label)
 	if m.errAt == label {
-		return "", ErrCancelled
+		return "", ErrCanceled
 	}
 	if v, ok := m.answers[label]; ok {
 		return fmt.Sprintf("%v", v), nil
@@ -30,7 +30,7 @@ func (m *mockPrompter) Input(label, _ string, _ survey.Validator) (string, error
 func (m *mockPrompter) Select(label string, _ []string, _ string) (string, error) {
 	m.calls = append(m.calls, label)
 	if m.errAt == label {
-		return "", ErrCancelled
+		return "", ErrCanceled
 	}
 	if v, ok := m.answers[label]; ok {
 		return fmt.Sprintf("%v", v), nil
@@ -41,7 +41,7 @@ func (m *mockPrompter) Select(label string, _ []string, _ string) (string, error
 func (m *mockPrompter) Confirm(label string, _ bool) (bool, error) {
 	m.calls = append(m.calls, label)
 	if m.errAt == label {
-		return false, ErrCancelled
+		return false, ErrCanceled
 	}
 	if v, ok := m.answers[label]; ok {
 		if b, ok := v.(bool); ok {
@@ -54,7 +54,7 @@ func (m *mockPrompter) Confirm(label string, _ bool) (bool, error) {
 func (m *mockPrompter) MultiSelect(label string, options []string, defaults []string) ([]string, error) {
 	m.calls = append(m.calls, label)
 	if m.errAt == label {
-		return nil, ErrCancelled
+		return nil, ErrCanceled
 	}
 	if v, ok := m.answers[label]; ok {
 		if s, ok := v.([]string); ok {
@@ -138,11 +138,11 @@ func TestInitWizardRun_NoConnectivitySkipsSubprompts(t *testing.T) {
 	}
 }
 
-func TestInitWizardRun_Cancelled(t *testing.T) {
+func TestInitWizardRun_Canceled(t *testing.T) {
 	mock := &mockPrompter{answers: map[string]interface{}{}, errAt: "Tenant ID (UUID)"}
 	_, err := NewInitWizard(mock).Run()
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, ErrCancelled))
+	assert.True(t, errors.Is(err, ErrCanceled))
 }
 
 func TestInitConfigToLZConfig(t *testing.T) {

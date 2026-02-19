@@ -18,7 +18,7 @@ func ParseAKSBlueprintConfig(overrides map[string]any) (AKSBlueprintConfig, erro
 	// Round-trip through JSON to handle map[string]any → typed struct.
 	b, err := json.Marshal(overrides)
 	if err != nil {
-		return cfg, fmt.Errorf("marshalling aks blueprint overrides: %w", err)
+		return cfg, fmt.Errorf("marshaling aks blueprint overrides: %w", err)
 	}
 	if err := json.Unmarshal(b, &cfg); err != nil {
 		return cfg, fmt.Errorf("parsing aks blueprint overrides: %w", err)

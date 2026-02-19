@@ -264,7 +264,7 @@ func (m *Manager) CheckHealth() (*BackendHealth, error) {
 
 	var acct struct {
 		Properties struct {
-			SupportsHTTPSTrafficOnly bool `json:"supportsHttpsTrafficOnly"`
+			SupportsHTTPSTrafficOnly bool   `json:"supportsHttpsTrafficOnly"`
 			MinimumTLSVersion        string `json:"minimumTlsVersion"`
 			Encryption               struct {
 				RequireInfrastructureEncryption bool `json:"requireInfrastructureEncryption"`
@@ -340,9 +340,9 @@ func (m *Manager) CheckHealth() (*BackendHealth, error) {
 	blobOut, err := m.cli.Run(blobSvcArgs...)
 	if err == nil {
 		var blobSvc struct {
-			IsVersioningEnabled        bool `json:"isVersioningEnabled"`
-			DeleteRetentionPolicy      struct{ Enabled bool } `json:"deleteRetentionPolicy"`
-			ContainerDeleteRetention   struct{ Enabled bool } `json:"containerDeleteRetentionPolicy"`
+			IsVersioningEnabled      bool                   `json:"isVersioningEnabled"`
+			DeleteRetentionPolicy    struct{ Enabled bool } `json:"deleteRetentionPolicy"`
+			ContainerDeleteRetention struct{ Enabled bool } `json:"containerDeleteRetentionPolicy"`
 		}
 		if err := json.Unmarshal([]byte(blobOut), &blobSvc); err == nil {
 			// Versioning

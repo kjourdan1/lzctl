@@ -28,7 +28,7 @@ Cloud Adoption Framework (CAF) design areas.
 
 It uses Terraform with Azure Verified Modules (AVM) to deploy platform
 layers in CAF dependency order:
-  1. management-groups   (Resource Organisation)
+  1. management-groups   (Resource Organization)
   2. identity            (Identity & Access)
   3. management          (Management & Monitoring)
   4. governance          (Azure Policies)

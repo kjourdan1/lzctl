@@ -156,7 +156,7 @@ func Create(opts CreateOpts) (string, error) {
 	}
 
 	// Write file
-	if err := os.WriteFile(outPath, content, 0o644); err != nil {
+	if err := os.WriteFile(outPath, content, 0o600); err != nil {
 		return "", fmt.Errorf("write %s: %w", outPath, err)
 	}
 
@@ -215,7 +215,7 @@ func Test(opts TestOpts) (*TestResult, error) {
 		if err != nil {
 			return nil, fmt.Errorf("marshal assignment: %w", err)
 		}
-		if err := os.WriteFile(assignmentPath, updated, 0o644); err != nil {
+		if err := os.WriteFile(assignmentPath, updated, 0o600); err != nil {
 			return nil, fmt.Errorf("write assignment: %w", err)
 		}
 
@@ -449,7 +449,7 @@ func Deploy(opts DeployOpts) error {
 	if err != nil {
 		return fmt.Errorf("marshal assignment: %w", err)
 	}
-	if err := os.WriteFile(assignmentPath, updated, 0o644); err != nil {
+	if err := os.WriteFile(assignmentPath, updated, 0o600); err != nil {
 		return fmt.Errorf("write assignment: %w", err)
 	}
 

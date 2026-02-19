@@ -41,7 +41,7 @@ type ArgoCDFederatedResult struct {
 
 // ArgoCDFederatedCredentialName is the canonical name for the ArgoCD
 // source-controller federated credential.
-const ArgoCDFederatedCredentialName = "argocd-source-controller"
+const ArgoCDFederatedCredentialName = "argocd-source-controller" //nolint:gosec // Not a credential — this is a Kubernetes service account name
 
 // ArgoCDSourceControllerSubject is the Kubernetes subject for the ArgoCD
 // source-controller service account (namespace: argocd).
@@ -98,7 +98,7 @@ func CreateArgoCDFederatedCredential(opts ArgoCDFederatedOptions) (*ArgoCDFedera
 
 	credJSON, err := json.Marshal(credDef)
 	if err != nil {
-		return nil, fmt.Errorf("marshalling federated credential: %w", err)
+		return nil, fmt.Errorf("marshaling federated credential: %w", err)
 	}
 
 	tmpFile, err := os.CreateTemp("", "lzctl-argocd-fed-*.json")

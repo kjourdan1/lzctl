@@ -44,7 +44,7 @@ func TestBrownfieldE2E_InitAdoptAddBlueprint(t *testing.T) {
 	out, err = runCLI(t, binPath, env,
 		"workload", "adopt",
 		"--ci",
-		"--name", "contoso-paas",		"--subscription", "cccccccc-dddd-4eee-8fff-000000000001",		"--archetype", "corp",
+		"--name", "contoso-paas", "--subscription", "cccccccc-dddd-4eee-8fff-000000000001", "--archetype", "corp",
 		"--address-space", "10.10.0.0/24",
 		"--connected=false",
 		"--repo-root", repoDir,

@@ -354,7 +354,7 @@ func outputImportJSON(resources []importer.ImportableResource) error {
 
 	data, err := json.MarshalIndent(output, "", "  ")
 	if err != nil {
-		return fmt.Errorf("marshalling import JSON: %w", err)
+		return fmt.Errorf("marshaling import JSON: %w", err)
 	}
 	fmt.Fprintln(os.Stdout, string(data))
 	return nil

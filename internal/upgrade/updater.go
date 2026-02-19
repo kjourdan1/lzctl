@@ -178,5 +178,5 @@ func UpdateVersionInFile(pin ModulePin, newVersion string) error {
 		return fmt.Errorf("version line not found for module %s in %s", pin.Ref, pin.FilePath)
 	}
 
-	return os.WriteFile(pin.FilePath, []byte(strings.Join(lines, "\n")), 0o644)
+	return os.WriteFile(pin.FilePath, []byte(strings.Join(lines, "\n")), 0o600)
 }

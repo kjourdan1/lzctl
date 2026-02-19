@@ -110,7 +110,7 @@ func ValidateScope(ctx context.Context, planFile string, allowedSubscriptions []
 	}
 
 	// Run `terraform show -json <planFile>` to get the plan in JSON format
-	cmd := exec.CommandContext(ctx, "terraform", "show", "-json", filepath.Base(planFile))
+	cmd := exec.CommandContext(ctx, "terraform", "show", "-json", filepath.Base(planFile)) //nolint:gosec // input is a local file path, not user-controlled
 	cmd.Dir = planDir
 	cmd.Env = append(os.Environ(), "TF_INPUT=false")
 

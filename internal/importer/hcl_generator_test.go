@@ -77,12 +77,12 @@ func TestHCLGenerator_GenerateAll_GroupsByLayer(t *testing.T) {
 	gen := NewHCLGenerator()
 	resources := []ImportableResource{
 		{
-			ID: "/sub/rg/providers/Microsoft.Network/virtualNetworks/vnet1",
+			ID:        "/sub/rg/providers/Microsoft.Network/virtualNetworks/vnet1",
 			AzureType: "microsoft.network/virtualnetworks", Name: "vnet1",
 			TerraformType: "azurerm_virtual_network", Supported: true,
 		},
 		{
-			ID: "/sub/resourceGroups/rg1",
+			ID:        "/sub/resourceGroups/rg1",
 			AzureType: "microsoft.resources/resourcegroups", Name: "rg1",
 			TerraformType: "azurerm_resource_group", Supported: true,
 		},
@@ -301,4 +301,3 @@ func TestHCLGenerator_InferLayer_BlueprintTypes(t *testing.T) {
 	assert.Equal(t, "blueprint-aks", gen.inferLayer("microsoft.containerregistry/registries"))
 	assert.Equal(t, "blueprint-avd", gen.inferLayer("microsoft.desktopvirtualization/hostpools"))
 }
-

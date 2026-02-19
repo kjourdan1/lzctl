@@ -175,8 +175,8 @@ func (w *ImportWizard) SelectResources(resources []importer.ImportableResource) 
 }
 
 func handleImportPromptErr(err error) error {
-	if errors.Is(err, ErrCancelled) {
-		return fmt.Errorf("import wizard cancelled: %w", ErrCancelled)
+	if errors.Is(err, ErrCanceled) {
+		return fmt.Errorf("import wizard canceled: %w", ErrCanceled)
 	}
 	return err
 }

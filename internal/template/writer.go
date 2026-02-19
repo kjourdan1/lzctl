@@ -24,7 +24,7 @@ func (w Writer) WriteAll(files []RenderedFile, targetDir string) ([]string, erro
 		if err := os.MkdirAll(filepath.Dir(fullPath), 0o755); err != nil {
 			return nil, fmt.Errorf("creating parent directory for %s: %w", fullPath, err)
 		}
-		if err := os.WriteFile(fullPath, []byte(f.Content), 0o644); err != nil {
+		if err := os.WriteFile(fullPath, []byte(f.Content), 0o600); err != nil {
 			return nil, fmt.Errorf("writing file %s: %w", fullPath, err)
 		}
 	}

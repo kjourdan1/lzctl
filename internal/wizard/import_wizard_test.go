@@ -56,8 +56,8 @@ func TestImportWizard_RunSubscriptionMode(t *testing.T) {
 			"Import source": "subscription",
 		},
 		inputs: map[string]string{
-			"Subscription ID (UUID)":                "a1b2c3d4-e5f6-1234-5678-abcdef012345",
-			"Target directory for generated files":  "imports",
+			"Subscription ID (UUID)":               "a1b2c3d4-e5f6-1234-5678-abcdef012345",
+			"Target directory for generated files": "imports",
 		},
 	}
 

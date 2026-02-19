@@ -194,8 +194,8 @@ func (w *InitWizard) Run() (*InitConfig, error) {
 }
 
 func handlePromptErr(err error) error {
-	if errors.Is(err, ErrCancelled) {
-		return fmt.Errorf("wizard cancelled: %w", ErrCancelled)
+	if errors.Is(err, ErrCanceled) {
+		return fmt.Errorf("wizard canceled: %w", ErrCanceled)
 	}
 	return err
 }

@@ -40,7 +40,7 @@ func Validate(cfg *LZConfig) (*ValidationResult, error) {
 	// Convert Go struct → JSON for schema validation
 	jsonBytes, err := json.Marshal(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("marshalling config to JSON: %w", err)
+		return nil, fmt.Errorf("marshaling config to JSON: %w", err)
 	}
 
 	if len(schemaBytes) == 0 {
@@ -102,7 +102,7 @@ func ValidateYAML(data []byte) (*ValidationResult, error) {
 }
 
 // convertYAMLToJSON recursively converts yaml-parsed maps (map[string]interface{})
-// to a format compatible with JSON marshalling. yaml.v3 already uses
+// to a format compatible with JSON marshaling. yaml.v3 already uses
 // map[string]interface{} so this is mostly a passthrough, but handles
 // edge cases like map[interface{}]interface{} from older YAML libs.
 func convertYAMLToJSON(v interface{}) interface{} {

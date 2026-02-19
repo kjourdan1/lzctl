@@ -31,7 +31,7 @@ launches an interactive wizard to build the configuration.
 
 Generated structure:
   platform/
-    management-groups/    (Resource Organisation)
+    management-groups/    (Resource Organization)
     identity/             (Identity & Access)
     management/           (Management & Monitoring)
     governance/           (Azure Policies)
@@ -242,8 +242,8 @@ func runInit(cmd *cobra.Command) error {
 		var runErr error
 		wizardCfg, runErr = wizard.NewInitWizard(nil).Run()
 		if runErr != nil {
-			if errors.Is(runErr, wizard.ErrCancelled) {
-				output.Warn("init wizard cancelled")
+			if errors.Is(runErr, wizard.ErrCanceled) {
+				output.Warn("init wizard canceled")
 				return nil
 			}
 			return fmt.Errorf("running init wizard: %w", runErr)

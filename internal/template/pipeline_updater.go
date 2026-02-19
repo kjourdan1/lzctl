@@ -158,7 +158,7 @@ func WriteLandingZoneMatrix(cfg *config.LZConfig, repoRoot string) (string, erro
 		return "", fmt.Errorf("creating .lzctl directory: %w", err)
 	}
 
-	if err := os.WriteFile(outPath, []byte(matrix+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(outPath, []byte(matrix+"\n"), 0o600); err != nil {
 		return "", fmt.Errorf("writing zone matrix: %w", err)
 	}
 

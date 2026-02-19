@@ -76,7 +76,7 @@ func runRollback(cmd *cobra.Command, args []string) error {
 		answer, _ := reader.ReadString('\n')
 		answer = strings.TrimSpace(strings.ToLower(answer))
 		if answer != "yes" {
-			fmt.Fprintln(os.Stderr, "\n❌ Rollback cancelled.")
+			fmt.Fprintln(os.Stderr, "\n❌ Rollback canceled.")
 			return nil
 		}
 		fmt.Fprintln(os.Stderr)

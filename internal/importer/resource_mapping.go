@@ -19,13 +19,13 @@ type ImportableResource struct {
 // canonical azurerm_* Terraform resource type.
 var mvpTerraformTypeByAzureType = map[string]string{
 	// Core infrastructure
-	"microsoft.resources/resourcegroups":               "azurerm_resource_group",
-	"microsoft.network/virtualnetworks":                "azurerm_virtual_network",
-	"microsoft.network/virtualnetworks/subnets":        "azurerm_subnet",
-	"microsoft.network/networksecuritygroups":          "azurerm_network_security_group",
-	"microsoft.network/routetables":                    "azurerm_route_table",
-	"microsoft.network/privateendpoints":               "azurerm_private_endpoint",
-	"microsoft.network/privatednszones":                "azurerm_private_dns_zone",
+	"microsoft.resources/resourcegroups":        "azurerm_resource_group",
+	"microsoft.network/virtualnetworks":         "azurerm_virtual_network",
+	"microsoft.network/virtualnetworks/subnets": "azurerm_subnet",
+	"microsoft.network/networksecuritygroups":   "azurerm_network_security_group",
+	"microsoft.network/routetables":             "azurerm_route_table",
+	"microsoft.network/privateendpoints":        "azurerm_private_endpoint",
+	"microsoft.network/privatednszones":         "azurerm_private_dns_zone",
 	// Security & identity
 	"microsoft.keyvault/vaults":                        "azurerm_key_vault",
 	"microsoft.keyvault/managedhsms":                   "azurerm_key_vault_managed_hardware_security_module",
@@ -33,20 +33,20 @@ var mvpTerraformTypeByAzureType = map[string]string{
 	"microsoft.managedidentity/userassignedidentities": "azurerm_user_assigned_identity",
 	"microsoft.authorization/policyassignments":        "azurerm_subscription_policy_assignment",
 	// App Service / Function App (paas-secure blueprint — AVM)
-	"microsoft.web/sites":                       "azurerm_linux_web_app",
-	"microsoft.web/serverfarms":                 "azurerm_service_plan",
-	"microsoft.web/staticwebapps":               "azurerm_static_web_app",
+	"microsoft.web/sites":         "azurerm_linux_web_app",
+	"microsoft.web/serverfarms":   "azurerm_service_plan",
+	"microsoft.web/staticwebapps": "azurerm_static_web_app",
 	// API Management (paas-secure blueprint — AVM)
-	"microsoft.apimanagement/service":           "azurerm_api_management",
+	"microsoft.apimanagement/service": "azurerm_api_management",
 	// Container platform (aks-platform / aca-platform blueprints — AVM)
 	"microsoft.containerservice/managedclusters": "azurerm_kubernetes_cluster",
 	"microsoft.containerregistry/registries":     "azurerm_container_registry",
 	"microsoft.app/managedenvironments":          "azurerm_container_app_environment",
-	"microsoft.app/containerapps":               "azurerm_container_app",
+	"microsoft.app/containerapps":                "azurerm_container_app",
 	// Virtual Desktop (avd-secure blueprint — AVM)
-	"microsoft.desktopvirtualization/hostpools":     "azurerm_virtual_desktop_host_pool",
+	"microsoft.desktopvirtualization/hostpools":         "azurerm_virtual_desktop_host_pool",
 	"microsoft.desktopvirtualization/applicationgroups": "azurerm_virtual_desktop_application_group",
-	"microsoft.desktopvirtualization/workspaces":   "azurerm_virtual_desktop_workspace",
+	"microsoft.desktopvirtualization/workspaces":        "azurerm_virtual_desktop_workspace",
 }
 
 // avmSourceByTerraformType maps azurerm_* types to their AVM Registry module

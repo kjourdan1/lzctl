@@ -149,3 +149,56 @@ func TestValidate_WrongEnumValues(t *testing.T) {
 	// Should have errors for invalid enum values (model, connectivity type, identity type, cicd platform)
 	assert.True(t, len(result.Errors) >= 3, "expected at least 3 enum validation errors, got %d", len(result.Errors))
 }
+
+func TestValidate_BlueprintEnum(t *testing.T) {
+	loadSchema(t)
+
+	cfg := &LZConfig{
+		APIVersion: "lzctl/v1",
+		Kind:       "LandingZone",
+		Metadata: Metadata{
+			Name:          "test",
+			Tenant:        "00000000-0000-0000-0000-000000000001",
+			PrimaryRegion: "westeurope",
+		},
+		Spec: Spec{
+			Platform: Platform{
+				ManagementGroups: ManagementGroupsConfig{Model: "caf-standard"},
+				Connectivity:     ConnectivityConfig{Type: "none"},
+				Identity:         IdentityConfig{Type: "workload-identity-federation"},
+				Management: ManagementConfig{
+					LogAnalytics: LogAnalyticsConfig{RetentionDays: 90},
+					Defender:     DefenderConfig{Enabled: true, Plans: []string{"VirtualMachines"}},
+				},
+			},
+			Governance:   Governance{Policies: PolicyConfig{Assignments: []string{"deploy-mdfc-config"}}},
+			Naming:       Naming{Convention: "caf"},
+			StateBackend: StateBackend{ResourceGroup: "rg", StorageAccount: "ststate", Container: "tfstate", Subscription: "00000000-0000-0000-0000-000000000001"},
+			LandingZones: []LandingZone{{
+				Name:         "contoso-paas",
+				Subscription: "11111111-1111-4111-8111-111111111111",
+				Archetype:    "corp",
+				AddressSpace: "10.1.0.0/24",
+				Connected:    true,
+				Blueprint: &Blueprint{
+					Type: "invalid-blueprint",
+				},
+			}},
+			CICD: CICD{Platform: "github-actions", BranchPolicy: BranchPolicy{MainBranch: "main", RequirePR: true}},
+		},
+	}
+
+	result, err := Validate(cfg)
+	require.NoError(t, err)
+	assert.False(t, result.Valid)
+	assert.NotEmpty(t, result.Errors)
+
+	hasBlueprintErr := false
+	for _, e := range result.Errors {
+		if e.Field == "spec.landingZones.0.blueprint.type" {
+			hasBlueprintErr = true
+			break
+		}
+	}
+	assert.True(t, hasBlueprintErr, "expected blueprint type enum error")
+}

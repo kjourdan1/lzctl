@@ -4,6 +4,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -15,6 +16,7 @@ var (
 	verbosity  int
 	dryRun     bool
 	jsonOutput bool // --json flag for machine-readable output
+	ciMode     bool
 )
 
 // rootCmd is the top-level command for lzctl.
@@ -54,9 +56,18 @@ func init() {
 	rootCmd.PersistentFlags().CountVarP(&verbosity, "verbose", "v", "increase verbosity (-v, -vv, -vvv)")
 	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "simulate actions without changing Azure resources")
 	rootCmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "output results as JSON (machine-readable)")
+	rootCmd.PersistentFlags().BoolVar(&ciMode, "ci", false, "strict non-interactive mode (fails when required inputs are missing)")
 
 	_ = viper.BindPFlag("repo_root", rootCmd.PersistentFlags().Lookup("repo-root"))
 	_ = viper.BindPFlag("dry_run", rootCmd.PersistentFlags().Lookup("dry-run"))
+	_ = viper.BindPFlag("ci", rootCmd.PersistentFlags().Lookup("ci"))
+}
+
+func effectiveCIMode() bool {
+	if ciMode {
+		return true
+	}
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("CI")), "true")
 }
 
 func initConfig() {

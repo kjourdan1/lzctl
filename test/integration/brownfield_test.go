@@ -124,25 +124,30 @@ func TestBrownfieldWorkflow_AuditToImport(t *testing.T) {
 		require.NoError(t, os.WriteFile(f.Path, []byte(f.Content), 0o644))
 	}
 
-	// Verify import.tf files contain import blocks
+	// Verify import.tf files contain import blocks (at least one should have actual blocks;
+	// layers with only unsupported resources will only contain TODO comments)
 	importFiles := filterFilesByName(files, "import.tf")
 	require.NotEmpty(t, importFiles, "expected at least one import.tf file")
 
+	allImportContent := ""
 	for _, f := range importFiles {
 		content, err := os.ReadFile(f.Path)
 		require.NoError(t, err)
-		assert.Contains(t, string(content), "import {", "import.tf should contain import blocks")
+		allImportContent += string(content)
 	}
+	assert.Contains(t, allImportContent, "import {", "at least one import.tf should contain import blocks")
 
-	// Verify resources.tf files contain resource blocks
+	// Verify resources.tf files contain resource blocks (at least one should have actual blocks)
 	resourceFiles := filterFilesByName(files, "resources.tf")
 	require.NotEmpty(t, resourceFiles, "expected at least one resources.tf file")
 
+	allResourceContent := ""
 	for _, f := range resourceFiles {
 		content, err := os.ReadFile(f.Path)
 		require.NoError(t, err)
-		assert.Contains(t, string(content), "resource ", "resources.tf should contain resource blocks")
+		allResourceContent += string(content)
 	}
+	assert.Contains(t, allResourceContent, "resource ", "at least one resources.tf should contain resource blocks")
 
 	// Verify unsupported resources generate TODO comments
 	allContent := ""

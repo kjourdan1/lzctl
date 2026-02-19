@@ -18,7 +18,7 @@ jobs:
         run: |
           set -euo pipefail
           DRIFT=0
-          for d in platform/management-groups platform/identity platform/management platform/governance platform/connectivity{{ range .Config.Spec.LandingZones }} landing-zones/{{ .Name | slugify }}{{ end }}; do
+          for d in platform/management-groups platform/identity platform/management platform/governance platform/connectivity{{ range .Config.Spec.LandingZones }} landing-zones/{{ .Name | slugify }}{{ if .Blueprint }} landing-zones/{{ .Name | slugify }}/blueprint{{ end }}{{ end }}; do
             if [ -d "$d" ]; then
               terraform -chdir="$d" init -input=false
               terraform -chdir="$d" plan -detailed-exitcode -input=false -out=tfplan 2>&1 || code=$?

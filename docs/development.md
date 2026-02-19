@@ -119,6 +119,22 @@ lzctl plan -vvv
 lzctl apply --dry-run
 ```
 
+## Tests d'intégration Azure (live)
+
+Les tests Azure live sont séparés des tests PR standards :
+
+- PR/CI standard : `go test ./...` (aucun appel Azure réel)
+- Live (nightly ou manuel) : `go test -tags=integration -v ./test/integration/...`
+
+Le workflow GitHub Actions dédié est `integration-azure.yml` et s'exécute en
+`workflow_dispatch` ou en planification hebdomadaire.
+
+Variables requises pour les tests live :
+
+- `AZURE_TENANT_ID`
+- `AZURE_CLIENT_ID`
+- `AZURE_SUBSCRIPTION_ID`
+
 ## Ajouter une nouvelle commande
 
 1. Créer `cmd/<command>.go` avec une commande Cobra

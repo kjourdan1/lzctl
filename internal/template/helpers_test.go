@@ -3,6 +3,7 @@ package template
 import (
 	"testing"
 
+	"github.com/kjourdan1/lzctl/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -39,4 +40,25 @@ func TestStorageAccountName(t *testing.T) {
 func TestToJSON(t *testing.T) {
 	result := ToJSON([]string{"a", "b"})
 	assert.Equal(t, `["a","b"]`, result)
+}
+
+func TestDNSZoneRef(t *testing.T) {
+	assert.Equal(t, "privatelink.azurewebsites.net", DNSZoneRef("appService"))
+	assert.Equal(t, "privatelink.vaultcore.azure.net", DNSZoneRef("keyVault"))
+	assert.Equal(t, "privatelink.azure-api.net", DNSZoneRef("apim"))
+	assert.Equal(t, "", DNSZoneRef("unknown-service"))
+}
+
+func TestConnectivityRemoteState(t *testing.T) {
+	cfg := &config.LZConfig{Spec: config.Spec{StateBackend: config.StateBackend{
+		ResourceGroup:  "rg-lz-state",
+		StorageAccount: "stlzstate",
+		Container:      "tfstate",
+		Subscription:   "00000000-0000-0000-0000-000000000001",
+	}}}
+
+	block := ConnectivityRemoteState(cfg)
+	assert.Contains(t, block, `data "terraform_remote_state" "connectivity"`)
+	assert.Contains(t, block, `key                  = "platform-connectivity.tfstate"`)
+	assert.Contains(t, block, `resource_group_name  = "rg-lz-state"`)
 }

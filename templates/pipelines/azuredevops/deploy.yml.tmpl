@@ -20,4 +20,17 @@ steps:
           terraform -chdir="$d" apply -auto-approve -input=false
         fi
       done
-    displayName: Terraform apply
+    displayName: Terraform apply platform layers
+{{ if .Config.Spec.LandingZones }}
+  # Landing zones + blueprints (LZ → blueprint order)
+  - script: |
+      set -euo pipefail
+      for d in {{ range .Config.Spec.LandingZones }}landing-zones/{{ .Name | slugify }} {{ if .Blueprint }}landing-zones/{{ .Name | slugify }}/blueprint {{ end }}{{ end }}; do
+        if [ -d "$d" ]; then
+          [[ "$d" == */blueprint ]] && BCFG="-backend-config=backend.hcl" || BCFG="-backend-config=../../backend.hcl"
+          terraform -chdir="$d" init -input=false $BCFG
+          terraform -chdir="$d" apply -auto-approve -input=false
+        fi
+      done
+    displayName: Terraform apply landing zones and blueprints
+{{ end }}

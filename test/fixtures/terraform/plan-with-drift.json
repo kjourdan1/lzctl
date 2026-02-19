@@ -1,0 +1,24 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.9.0",
+  "resource_changes": [
+    {
+      "address": "azurerm_resource_group.rg_core",
+      "change": {
+        "actions": ["update"]
+      }
+    },
+    {
+      "address": "azurerm_network_security_group.nsg_app",
+      "change": {
+        "actions": ["create"]
+      }
+    },
+    {
+      "address": "azurerm_route_table.rt_core",
+      "change": {
+        "actions": ["create"]
+      }
+    }
+  ]
+}

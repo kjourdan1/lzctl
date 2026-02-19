@@ -25,6 +25,9 @@ Permet l'adoption progressive d'Infrastructure as Code en générant :
 | `--include` | | Types de ressources à inclure (séparés par virgule) |
 | `--exclude` | | Types de ressources à exclure (séparés par virgule) |
 | `--layer` | auto | Couche cible pour les fichiers générés |
+| `--ci` | `false` | Mode strict non-interactif (global) |
+
+En mode CI (`--ci` ou `CI=true`), `lzctl import` n'autorise pas le wizard interactif : il faut fournir `--from`, `--subscription` ou `--resource-group`.
 
 ## Exemples
 
@@ -37,6 +40,9 @@ lzctl import --resource-group rg-core --layer connectivity
 
 # Dry-run
 lzctl import --subscription 00000000-... --dry-run
+
+# CI headless (sans wizard)
+CI=true lzctl import --from audit-report.json --dry-run
 
 # Filtrer par type
 lzctl import --from audit-report.json --include Microsoft.Network/virtualNetworks
@@ -68,3 +74,4 @@ lzctl audit --json --output audit-report.json
 
 - [audit](audit.md) — générer le rapport d'entrée
 - [workload adopt](../cli-reference.md) — adopter une subscription complète
+- [CI headless](../operations/ci-headless.md) — exécuter import sans wizard en pipeline

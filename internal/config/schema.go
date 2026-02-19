@@ -81,6 +81,7 @@ type GatewayConfig struct {
 // IdentityConfig defines the identity/authentication model.
 type IdentityConfig struct {
 	Type        string `yaml:"type" json:"type"`                                   // "workload-identity-federation" | "sp-federated" | "sp-secret"
+	Name        string `yaml:"name,omitempty" json:"name,omitempty"`               // managed identity resource name (set post-bootstrap)
 	ClientID    string `yaml:"clientId,omitempty" json:"clientId,omitempty"`       // populated post-bootstrap
 	PrincipalID string `yaml:"principalId,omitempty" json:"principalId,omitempty"` // populated post-bootstrap
 }
@@ -130,8 +131,8 @@ type StateBackend struct {
 	StorageAccount string `yaml:"storageAccount" json:"storageAccount"`
 	Container      string `yaml:"container" json:"container"`
 	Subscription   string `yaml:"subscription" json:"subscription"`
-	Versioning     bool   `yaml:"versioning" json:"versioning"`         // enable blob versioning for state history
-	SoftDelete     bool   `yaml:"softDelete" json:"softDelete"`         // enable soft delete for accidental deletion protection
+	Versioning     bool   `yaml:"versioning" json:"versioning"`                             // enable blob versioning for state history
+	SoftDelete     bool   `yaml:"softDelete" json:"softDelete"`                             // enable soft delete for accidental deletion protection
 	SoftDeleteDays int    `yaml:"softDeleteDays,omitempty" json:"softDeleteDays,omitempty"` // retention days for soft-deleted blobs (default: 30)
 }
 
@@ -143,6 +144,84 @@ type LandingZone struct {
 	AddressSpace string            `yaml:"addressSpace" json:"addressSpace"`
 	Connected    bool              `yaml:"connected" json:"connected"`
 	Tags         map[string]string `yaml:"tags,omitempty" json:"tags,omitempty"`
+	Blueprint    *Blueprint        `yaml:"blueprint,omitempty" json:"blueprint,omitempty"`
+}
+
+// Blueprint defines an optional workload blueprint attached to a landing zone.
+type Blueprint struct {
+	Type      string         `yaml:"type" json:"type"` // "paas-secure" | "aks-platform" | "aca-platform" | "avd-secure"
+	Overrides map[string]any `yaml:"overrides,omitempty" json:"overrides,omitempty"`
+}
+
+// AKSBlueprintConfig is the typed representation of the aks-platform blueprint
+// overrides. Used by the template engine to render AKS-platform Terraform files
+// with ArgoCD support (E9-S1). Decoded from Blueprint.Overrides via ParseAKSBlueprintConfig.
+type AKSBlueprintConfig struct {
+	AKS      AKSOverrideConfig      `yaml:"aks" json:"aks"`
+	ACR      ACROverrideConfig      `yaml:"acr" json:"acr"`
+	Defender DefenderOverrideConfig `yaml:"defender" json:"defender"`
+	ArgoCD   ArgoCDConfig           `yaml:"argocd" json:"argocd"`
+}
+
+// AKSOverrideConfig holds AKS cluster-level overrides for aks-platform.
+type AKSOverrideConfig struct {
+	Version string `yaml:"version" json:"version"` // Kubernetes version e.g. "1.30"
+}
+
+// ACROverrideConfig holds Container Registry overrides for aks-platform.
+type ACROverrideConfig struct {
+	SKU string `yaml:"sku" json:"sku"` // "Basic" | "Standard" | "Premium"
+}
+
+// DefenderOverrideConfig holds Microsoft Defender for Containers overrides.
+type DefenderOverrideConfig struct {
+	Enabled bool `yaml:"enabled" json:"enabled"`
+}
+
+// ArgoCDConfig is the opt-in ArgoCD configuration for aks-platform blueprints.
+//
+// When ArgoCD.Enabled = true, lzctl generates:
+//   - argocd.tf (extension or helm block, E9-S2)
+//   - landing-zones/<name>/blueprint/argocd/appset.yaml (ApplicationSet, E9-S4)
+//   - landing-zones/<name>/blueprint/Makefile with argocd-login target (E9-S5)
+//
+// Mode values:
+//   - "extension" (default/recommended): Microsoft Flux GitOps extension via Arc
+//   - "helm": Argo CD helm chart (provides more version control)
+type ArgoCDConfig struct {
+	Enabled        bool   `yaml:"enabled" json:"enabled"`               // default: false
+	Mode           string `yaml:"mode" json:"mode"`                     // "extension" | "helm"
+	RepoURL        string `yaml:"repoUrl" json:"repoUrl"`               // git repo URL for app-repo
+	TargetRevision string `yaml:"targetRevision" json:"targetRevision"` // default: "HEAD"
+	AppPath        string `yaml:"appPath" json:"appPath"`               // root path for ApplicationSets, default: "apps/"
+	SSOEnabled     bool   `yaml:"ssoEnabled" json:"ssoEnabled"`         // Entra ID SSO integration
+	ChartVersion   string `yaml:"chartVersion" json:"chartVersion"`     // pinned ArgoCD chart version (helm mode)
+}
+
+// ArgoCDMode validates the argocd.mode enum.
+func (a *ArgoCDConfig) ArgoCDMode() string {
+	switch a.Mode {
+	case "helm":
+		return "helm"
+	default:
+		return "extension"
+	}
+}
+
+// EffectiveTargetRevision returns the target revision, defaulting to "HEAD".
+func (a *ArgoCDConfig) EffectiveTargetRevision() string {
+	if a.TargetRevision == "" {
+		return "HEAD"
+	}
+	return a.TargetRevision
+}
+
+// EffectiveAppPath returns the app path, defaulting to "apps/".
+func (a *ArgoCDConfig) EffectiveAppPath() string {
+	if a.AppPath == "" {
+		return "apps/"
+	}
+	return a.AppPath
 }
 
 // CICD holds CI/CD pipeline configuration.

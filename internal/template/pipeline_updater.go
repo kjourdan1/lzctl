@@ -103,7 +103,8 @@ func (e *Engine) RenderPipelines(cfg *config.LZConfig) ([]RenderedFile, error) {
 }
 
 // GenerateZoneMatrix creates a YAML matrix include snippet for landing zone
-// pipeline steps. This can be embedded in pipeline templates.
+// pipeline steps. Blueprint layers are appended after their parent zone entry
+// so that the CI/CD matrix respects the dependency order (LZ → blueprint).
 func GenerateZoneMatrix(cfg *config.LZConfig) string {
 	if cfg == nil || len(cfg.Spec.LandingZones) == 0 {
 		return "[]"
@@ -111,16 +112,40 @@ func GenerateZoneMatrix(cfg *config.LZConfig) string {
 
 	var sb strings.Builder
 	sb.WriteString("[")
-	for i, zone := range cfg.Spec.LandingZones {
-		if i > 0 {
+	first := true
+	for _, zone := range cfg.Spec.LandingZones {
+		if !first {
 			sb.WriteString(", ")
 		}
 		slug := Slugify(zone.Name)
 		sb.WriteString(fmt.Sprintf(`{"name": %q, "dir": "landing-zones/%s", "archetype": %q}`,
 			zone.Name, slug, zone.Archetype))
+		first = false
+		// Blueprint layer always follows its parent landing zone.
+		if zone.Blueprint != nil {
+			sb.WriteString(", ")
+			sb.WriteString(fmt.Sprintf(
+				`{"name": %q, "dir": "landing-zones/%s/blueprint", "archetype": "blueprint", "blueprintType": %q}`,
+				zone.Name+"-blueprint", slug, zone.Blueprint.Type))
+		}
 	}
 	sb.WriteString("]")
 	return sb.String()
+}
+
+// LandingZoneDirs returns the ordered list of landing-zone and blueprint
+// directories for use in pipeline shell loops. Each zone dir is followed
+// immediately by its blueprint dir when a blueprint is configured.
+func LandingZoneDirs(cfg *config.LZConfig) []string {
+	var dirs []string
+	for _, zone := range cfg.Spec.LandingZones {
+		slug := Slugify(zone.Name)
+		dirs = append(dirs, "landing-zones/"+slug)
+		if zone.Blueprint != nil {
+			dirs = append(dirs, "landing-zones/"+slug+"/blueprint")
+		}
+	}
+	return dirs
 }
 
 // WriteLandingZoneMatrix writes a zone-matrix.json file that CI/CD pipelines

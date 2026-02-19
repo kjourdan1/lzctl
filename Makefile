@@ -17,8 +17,9 @@ LDFLAGS      := -s -w \
 	-X '$(MODULE)/cmd.BuildDate=$(BUILD_DATE)'
 BIN_DIR      := bin
 PLATFORMS    := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
+COVERAGE_MIN ?= 45
 
-.PHONY: all build clean test lint fmt vet tidy install cross-compile help
+.PHONY: all build clean test lint fmt vet tidy install cross-compile help test-coverage-check
 
 # ── Default ──────────────────────────────────────────────────
 
@@ -81,6 +82,17 @@ test-coverage: ## Run tests with coverage report
 	$(GO) test $(RACE) -coverprofile=$(BIN_DIR)/coverage.out ./...
 	$(GO) tool cover -html=$(BIN_DIR)/coverage.out -o $(BIN_DIR)/coverage.html
 	@echo "==> Coverage report: $(BIN_DIR)/coverage.html"
+
+test-coverage-check: ## Run tests and fail if coverage is below COVERAGE_MIN
+	@echo "==> Running coverage gate (min: $(COVERAGE_MIN)%)..."
+	@mkdir -p $(BIN_DIR)
+	$(GO) test -coverprofile=$(BIN_DIR)/coverage.out ./...
+	@coverage=$$($(GO) tool cover -func=$(BIN_DIR)/coverage.out | awk '/^total:/ {gsub("%", "", $$3); print $$3}'); \
+		echo "==> Total coverage: $$coverage%"; \
+		awk -v c="$$coverage" -v min="$(COVERAGE_MIN)" 'BEGIN { exit (c+0 < min+0 ? 1 : 0) }' || { \
+			echo "Coverage $$coverage% is below threshold $(COVERAGE_MIN)%"; \
+			exit 1; \
+		}
 
 # ── Code Quality ─────────────────────────────────────────────
 

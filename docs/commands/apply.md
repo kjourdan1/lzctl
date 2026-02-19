@@ -28,6 +28,9 @@ Avant chaque apply, un snapshot automatique des state files est créé dans le C
 | `--layer` | toutes | Couche spécifique à appliquer |
 | `--target` | | Alias pour `--layer` |
 | `--auto-approve` | `false` | Passer la confirmation (CI uniquement) |
+| `--ci` | `false` | Mode strict non-interactif (global) |
+
+En mode CI (`--ci` ou `CI=true`), `lzctl apply` exige `--auto-approve` (sauf `--dry-run`).
 
 ## Exemples
 
@@ -37,6 +40,9 @@ lzctl apply
 
 # Apply sur une seule couche sans confirmation
 lzctl apply --layer connectivity --auto-approve
+
+# CI headless
+CI=true lzctl apply --layer connectivity --auto-approve
 
 # Dry-run
 lzctl apply --dry-run

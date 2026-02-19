@@ -3,6 +3,7 @@ package template
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/kjourdan1/lzctl/internal/config"
@@ -163,6 +164,335 @@ func TestRenderAll_ConnectivityVariants(t *testing.T) {
 		assert.Contains(t, paths, filepath.ToSlash(filepath.Join("landing-zones", "sandbox-zone", "main.tf")))
 		assert.NotContains(t, paths[filepath.ToSlash(filepath.Join("landing-zones", "sandbox-zone", "main.tf"))], "virtual_network_peering")
 	})
+}
+
+func TestRenderAll_GitHubDeployWorkflow_OrderAndBackendConfig(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	files, err := engine.RenderAll(sampleConfig())
+	require.NoError(t, err)
+
+	contentByPath := map[string]string{}
+	for _, file := range files {
+		contentByPath[file.Path] = file.Content
+	}
+
+	deployPath := filepath.ToSlash(filepath.Join(".github", "workflows", "deploy.yml"))
+	deploy := contentByPath[deployPath]
+	require.NotEmpty(t, deploy)
+
+	assert.Contains(t, deploy, "for d in platform/management-groups platform/identity platform/management platform/governance platform/connectivity")
+	assert.Contains(t, deploy, "terraform -chdir=\"$d\" init -input=false -backend-config=../../backend.hcl")
+
+}
+
+func TestRenderAll_GitHubValidateWorkflow_Order(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	files, err := engine.RenderAll(sampleConfig())
+	require.NoError(t, err)
+
+	contentByPath := map[string]string{}
+	for _, file := range files {
+		contentByPath[file.Path] = file.Content
+	}
+
+	validatePath := filepath.ToSlash(filepath.Join(".github", "workflows", "validate.yml"))
+	validate := contentByPath[validatePath]
+	require.NotEmpty(t, validate)
+
+	assert.Contains(t, validate, "for d in platform/management-groups platform/identity platform/management platform/governance platform/connectivity")
+	assert.Contains(t, validate, "terraform -chdir=\"$d\" init -backend=false -input=false")
+	assert.Contains(t, validate, "terraform -chdir=\"$d\" validate")
+}
+
+func TestRenderAll_SharedBackendConfigRouting(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	files, err := engine.RenderAll(sampleConfig())
+	require.NoError(t, err)
+
+	contentByPath := map[string]string{}
+	for _, file := range files {
+		contentByPath[file.Path] = file.Content
+	}
+
+	backendHCLPath := filepath.ToSlash(filepath.Join("platform", "shared", "backend.hcl"))
+	backendTFPath := filepath.ToSlash(filepath.Join("platform", "shared", "backend.tf"))
+
+	backendHCL := contentByPath[backendHCLPath]
+	backendTF := contentByPath[backendTFPath]
+
+	require.NotEmpty(t, backendHCL)
+	require.NotEmpty(t, backendTF)
+
+	assert.Contains(t, backendHCL, "resource_group_name  = \"rg-lzctl-state\"")
+	assert.Contains(t, backendHCL, "storage_account_name = \"stlzctlstate\"")
+	assert.Contains(t, backendHCL, "container_name       = \"tfstate\"")
+	assert.Contains(t, backendHCL, "subscription_id      = \"00000000-0000-0000-0000-000000000000\"")
+
+	assert.Contains(t, backendTF, "key                  = \"platform/shared/terraform.tfstate\"")
+	assert.Contains(t, backendTF, "use_azuread_auth     = true")
+}
+
+func TestRenderAll_DriftWorkflowIncludesLandingZones(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	cfg := sampleConfig()
+	cfg.Spec.LandingZones = []config.LandingZone{
+		{Name: "corp zone", Archetype: "corp", AddressSpace: "10.10.0.0/24", Connected: true},
+	}
+
+	files, err := engine.RenderAll(cfg)
+	require.NoError(t, err)
+
+	contentByPath := map[string]string{}
+	for _, file := range files {
+		contentByPath[file.Path] = file.Content
+	}
+
+	driftPath := filepath.ToSlash(filepath.Join(".github", "workflows", "drift.yml"))
+	drift := contentByPath[driftPath]
+	require.NotEmpty(t, drift)
+
+	assert.Contains(t, drift, "landing-zones/corp-zone")
+}
+
+func TestRenderAll_DriftWorkflow_IncludesBlueprintDirs(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	cfg := sampleConfig()
+	cfg.Spec.LandingZones = []config.LandingZone{
+		{
+			Name: "corp-zone", Archetype: "corp", AddressSpace: "10.10.0.0/24", Connected: true,
+			Blueprint: &config.Blueprint{Type: "paas-secure"},
+		},
+		{Name: "sandbox-zone", Archetype: "sandbox", AddressSpace: "10.20.0.0/24"},
+	}
+
+	files, err := engine.RenderAll(cfg)
+	require.NoError(t, err)
+
+	contentByPath := map[string]string{}
+	for _, f := range files {
+		contentByPath[f.Path] = f.Content
+	}
+
+	driftPath := filepath.ToSlash(filepath.Join(".github", "workflows", "drift.yml"))
+	drift := contentByPath[driftPath]
+	require.NotEmpty(t, drift)
+
+	assert.Contains(t, drift, "landing-zones/corp-zone")
+	assert.Contains(t, drift, "landing-zones/corp-zone/blueprint")
+	// sandbox has no blueprint — no blueprint dir in drift
+	assert.NotContains(t, drift, "landing-zones/sandbox-zone/blueprint")
+}
+
+func TestRenderAll_DeployWorkflow_IncludesLandingZonesAndBlueprints(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	cfg := sampleConfig()
+	cfg.Spec.LandingZones = []config.LandingZone{
+		{
+			Name: "app-zone", Archetype: "corp", AddressSpace: "10.1.0.0/24",
+			Blueprint: &config.Blueprint{Type: "paas-secure"},
+		},
+	}
+
+	files, err := engine.RenderAll(cfg)
+	require.NoError(t, err)
+
+	contentByPath := map[string]string{}
+	for _, f := range files {
+		contentByPath[f.Path] = f.Content
+	}
+
+	deployPath := filepath.ToSlash(filepath.Join(".github", "workflows", "deploy.yml"))
+	deploy := contentByPath[deployPath]
+	require.NotEmpty(t, deploy)
+
+	assert.Contains(t, deploy, "landing-zones/app-zone")
+	assert.Contains(t, deploy, "landing-zones/app-zone/blueprint")
+	// Blueprint-specific backend config flag
+	assert.Contains(t, deploy, "*/blueprint")
+}
+
+func TestRenderBlueprint_PaasSecure(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	cfg := sampleConfig()
+	files, err := engine.RenderBlueprint("contoso-paas", &config.Blueprint{Type: "paas-secure"}, cfg)
+	require.NoError(t, err)
+	require.Len(t, files, 4)
+
+	content := map[string]string{}
+	for _, f := range files {
+		content[f.Path] = f.Content
+	}
+
+	assert.Contains(t, content, filepath.ToSlash(filepath.Join("landing-zones", "contoso-paas", "blueprint", "main.tf")))
+	assert.Contains(t, content, filepath.ToSlash(filepath.Join("landing-zones", "contoso-paas", "blueprint", "variables.tf")))
+	assert.Contains(t, content, filepath.ToSlash(filepath.Join("landing-zones", "contoso-paas", "blueprint", "blueprint.auto.tfvars")))
+	assert.Contains(t, content, filepath.ToSlash(filepath.Join("landing-zones", "contoso-paas", "blueprint", "backend.hcl")))
+
+	assert.Contains(t, content[filepath.ToSlash(filepath.Join("landing-zones", "contoso-paas", "blueprint", "main.tf"))], "output \"workload_resource_group_id\"")
+	assert.Contains(t, content[filepath.ToSlash(filepath.Join("landing-zones", "contoso-paas", "blueprint", "main.tf"))], "privatelink.azurewebsites.net")
+}
+
+func TestRenderBlueprint_PaasSecure_Overrides(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	cfg := sampleConfig()
+	files, err := engine.RenderBlueprint("contoso-paas", &config.Blueprint{
+		Type: "paas-secure",
+		Overrides: map[string]any{
+			"apim":       map[string]any{"enabled": false, "sku": "Premium_1"},
+			"appService": map[string]any{"sku": "P2v3", "runtimeStack": "NODE|20-lts"},
+			"keyVault":   map[string]any{"softDeleteRetentionDays": 30},
+		},
+	}, cfg)
+	require.NoError(t, err)
+
+	var tfvars string
+	for _, f := range files {
+		if strings.HasSuffix(f.Path, "blueprint.auto.tfvars") {
+			tfvars = f.Content
+			break
+		}
+	}
+	require.NotEmpty(t, tfvars)
+	assert.Contains(t, tfvars, `appservice_sku = "P2v3"`)
+	assert.Contains(t, tfvars, `apim_enabled = false`)
+	assert.Contains(t, tfvars, `keyvault_soft_delete_retention_days = 30`)
+}
+
+func TestRenderBlueprint_AKSPlatform(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	cfg := sampleConfig()
+	files, err := engine.RenderBlueprint("contoso-aks", &config.Blueprint{Type: "aks-platform"}, cfg)
+	require.NoError(t, err)
+	// No ArgoCD → 5 files: main.tf, variables.tf, blueprint.auto.tfvars, backend.hcl, Makefile
+	require.Len(t, files, 5)
+
+	content := map[string]string{}
+	for _, f := range files {
+		content[f.Path] = f.Content
+	}
+
+	mainPath := filepath.ToSlash(filepath.Join("landing-zones", "contoso-aks", "blueprint", "main.tf"))
+	assert.Contains(t, content, mainPath)
+	assert.Contains(t, content[mainPath], "output \"workload_resource_group_id\"")
+	assert.Contains(t, content[mainPath], "private_cluster_enabled        = true")
+	assert.Contains(t, content[mainPath], "azure_policy_enabled           = true")
+	assert.Contains(t, content[mainPath], "oidc_issuer_enabled            = true")
+	assert.Contains(t, content[mainPath], "output \"aks_oidc_issuer_url\"")
+	// ACR + KV private endpoints
+	assert.Contains(t, content[mainPath], "privatelink.azurecr.io")
+	assert.Contains(t, content[mainPath], "privatelink.vaultcore.azure.net")
+
+	makePath := filepath.ToSlash(filepath.Join("landing-zones", "contoso-aks", "blueprint", "Makefile"))
+	assert.Contains(t, content, makePath)
+	assert.Contains(t, content[makePath], "argocd-login")
+	assert.Contains(t, content[makePath], "kubectl port-forward")
+
+	// No ArgoCD appset file
+	appsetPath := filepath.ToSlash(filepath.Join("landing-zones", "contoso-aks", "blueprint", "argocd", "appset.yaml"))
+	assert.NotContains(t, content, appsetPath)
+}
+
+func TestRenderBlueprint_AKSPlatform_WithArgoCD(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	cfg := sampleConfig()
+	files, err := engine.RenderBlueprint("contoso-aks", &config.Blueprint{
+		Type: "aks-platform",
+		Overrides: map[string]any{
+			"aks": map[string]any{"version": "1.30"},
+			"acr": map[string]any{"sku": "Premium"},
+			"argocd": map[string]any{
+				"enabled":        true,
+				"mode":           "extension",
+				"repoUrl":        "https://github.com/org/app-repo",
+				"targetRevision": "main",
+				"appPath":        "apps/",
+			},
+		},
+	}, cfg)
+	require.NoError(t, err)
+	// With ArgoCD and AppSet: 6 files
+	require.Len(t, files, 6)
+
+	content := map[string]string{}
+	for _, f := range files {
+		content[f.Path] = f.Content
+	}
+
+	// ApplicationSet generated (E9-S4)
+	appsetPath := filepath.ToSlash(filepath.Join("landing-zones", "contoso-aks", "blueprint", "argocd", "appset.yaml"))
+	require.Contains(t, content, appsetPath)
+	assert.Contains(t, content[appsetPath], "kind: ApplicationSet")
+	assert.Contains(t, content[appsetPath], "https://github.com/org/app-repo")
+	assert.Contains(t, content[appsetPath], "selfHeal: true")
+
+	// ArgoCD extension block in main.tf (E9-S2)
+	mainPath := filepath.ToSlash(filepath.Join("landing-zones", "contoso-aks", "blueprint", "main.tf"))
+	assert.Contains(t, content[mainPath], "azurerm_kubernetes_cluster_extension")
+	assert.Contains(t, content[mainPath], "microsoft.flux")
+
+	// tfvars reflects overrides
+	tfvarsPath := filepath.ToSlash(filepath.Join("landing-zones", "contoso-aks", "blueprint", "blueprint.auto.tfvars"))
+	assert.Contains(t, content[tfvarsPath], `aks_kubernetes_version = "1.30"`)
+	assert.Contains(t, content[tfvarsPath], `argocd_enabled         = true`)
+	assert.Contains(t, content[tfvarsPath], `argocd_mode            = "extension"`)
+}
+
+func TestRenderBlueprint_AKSPlatform_InvalidArgoCD(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	cfg := sampleConfig()
+	_, err = engine.RenderBlueprint("contoso-aks", &config.Blueprint{
+		Type: "aks-platform",
+		Overrides: map[string]any{
+			"argocd": map[string]any{
+				"enabled": true,
+				"mode":    "invalid-mode",
+				"repoUrl": "https://github.com/org/app-repo",
+			},
+		},
+	}, cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "argocd.mode")
+}
+
+func TestRenderBlueprint_AKSPlatform_ArgoCD_MissingRepoURL(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	cfg := sampleConfig()
+	_, err = engine.RenderBlueprint("contoso-aks", &config.Blueprint{
+		Type: "aks-platform",
+		Overrides: map[string]any{
+			"argocd": map[string]any{
+				"enabled": true,
+				"mode":    "extension",
+				// repoUrl intentionally missing
+			},
+		},
+	}, cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "argocd.repoUrl")
 }
 
 func TestWriteAll_DryRun(t *testing.T) {

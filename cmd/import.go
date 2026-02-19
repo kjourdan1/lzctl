@@ -29,7 +29,17 @@ Sources:
 
 Without flags, an interactive wizard guides resource selection.
 
-Generated files are placed in imports/ by default (override with --layer).`,
+Generated files are placed in imports/ by default (override with --layer).
+
+Blueprint layer support (E8-S11):
+  Use --layer landing-zones/<name>/blueprint to import existing paas-secure or
+  aks-platform resources directly into the blueprint layer. When an AVM module
+  is available for the resource type, a module stub is emitted instead of a raw
+  resource block — which aligns with the blueprint convention.
+
+  Examples:
+    lzctl import --subscription <id> --resource-group rg-app \\
+      --layer landing-zones/contoso-app/blueprint`,
 	RunE: runImport,
 }
 
@@ -62,6 +72,9 @@ func runImport(cmd *cobra.Command, args []string) error {
 
 	// Determine import mode: from audit report, CLI flags, or interactive wizard.
 	mode := resolveImportMode()
+	if mode == "interactive" && effectiveCIMode() {
+		return fmt.Errorf("--ci mode requires import source flags (--from, --subscription or --resource-group)")
+	}
 
 	var resources []importer.ImportableResource
 	var targetDir string
@@ -83,6 +96,10 @@ func runImport(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		targetDir = resolveTargetDir(root)
+		// Hint: AVM module stubs will be emitted for blueprint layers.
+		if importer.IsBlueprintLayer(importLayer) {
+			yellow.Fprintf(os.Stderr, "💡 Blueprint layer detected — AVM module stubs will be used for supported resource types.\n")
+		}
 
 	default: // interactive
 		bold.Fprintln(os.Stderr, "🧙 Starting import wizard...")

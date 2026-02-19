@@ -288,6 +288,25 @@
         "tags": {
           "type": "object",
           "additionalProperties": { "type": "string" }
+        },
+        "blueprint": {
+          "$ref": "#/definitions/Blueprint"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "Blueprint": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["paas-secure", "aks-platform", "aca-platform", "avd-secure"]
+        },
+        "overrides": {
+          "type": "object",
+          "additionalProperties": true
         }
       },
       "additionalProperties": false

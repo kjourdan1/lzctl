@@ -19,3 +19,15 @@ jobs:
               terraform -chdir="$d" validate
             fi
           done
+{{ if .Config.Spec.LandingZones }}
+      # ── Validate landing zones + blueprints ─────────────────────────
+      - name: Validate landing zones and blueprints
+        run: |
+          set -euo pipefail
+          for d in {{ range .Config.Spec.LandingZones }}landing-zones/{{ .Name | slugify }} {{ if .Blueprint }}landing-zones/{{ .Name | slugify }}/blueprint {{ end }}{{ end }}; do
+            if [ -d "$d" ]; then
+              terraform -chdir="$d" init -backend=false -input=false
+              terraform -chdir="$d" validate
+            fi
+          done
+{{ end }}

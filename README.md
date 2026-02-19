@@ -221,6 +221,7 @@ spec:
 | [Architecture](docs/architecture.md) | Décisions architecturales (ADRs) |
 | [Contributing](CONTRIBUTING.md) | Guide de contribution |
 | [State Management](docs/operations/state-management.md) | Guide opérationnel de gestion du state |
+| [CI Headless](docs/operations/ci-headless.md) | Exécuter init/validate/plan/apply sans interaction |
 | [Rollback](docs/operations/rollback.md) | Procédures de rollback |
 | [Drift Response](docs/operations/drift-response.md) | Réponse au drift d'infrastructure |
 | [Testing](TESTING.md) | Guide de tests |

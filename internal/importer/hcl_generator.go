@@ -35,10 +35,7 @@ func (g *HCLGenerator) GenerateAll(resources []ImportableResource, targetDir str
 		importContent := g.renderImportBlocks(layerResources)
 		hclContent := g.renderResourceBlocks(layerResources)
 
-		basePath := targetDir
-		if layer != "general" {
-			basePath = fmt.Sprintf("%s/%s", targetDir, layer)
-		}
+		basePath := fmt.Sprintf("%s/%s", targetDir, layer)
 
 		files = append(files, GeneratedFile{
 			Path:    fmt.Sprintf("%s/import.tf", basePath),
@@ -62,11 +59,19 @@ func (g *HCLGenerator) GenerateImportBlock(resource ImportableResource) string {
 	return fmt.Sprintf("import {\n  to = %s\n  id = %q\n}\n", addr, resource.ID)
 }
 
-// GenerateResourceBlock produces a stub HCL resource configuration.
+// GenerateResourceBlock produces a stub HCL resource or AVM module configuration.
+// When an AVM module is available for the resource type, a module block is emitted
+// instead of a raw resource block — callers should then remove the import block and
+// instead run `terraform import module.<name>.<tf_type>.<local> <id>` manually.
 func (g *HCLGenerator) GenerateResourceBlock(resource ImportableResource) string {
 	if !resource.Supported {
 		return fmt.Sprintf("# TODO: manual import required for %s %q\n# Azure Resource ID: %s\n",
 			resource.AzureType, resource.Name, resource.ID)
+	}
+
+	// Prefer AVM module stub when a module source is available.
+	if avm := AVMSource(resource.TerraformType); avm != "" {
+		return g.GenerateAVMModuleBlock(resource, avm)
 	}
 
 	localName := g.localName(resource)
@@ -79,6 +84,52 @@ func (g *HCLGenerator) GenerateResourceBlock(resource ImportableResource) string
 	}
 	sb.WriteString("}\n")
 	return sb.String()
+}
+
+// GenerateAVMModuleBlock produces a Terraform module block stub using the AVM
+// Registry source. The import block for AVM modules uses the internal resource
+// address (module.<name>.<tf_type>.<local_name>).
+func (g *HCLGenerator) GenerateAVMModuleBlock(resource ImportableResource, avmSource string) string {
+	localName := g.localName(resource)
+	attrs := g.avmModuleAttributes(resource)
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("# AVM module — lzctl emits a module stub; import via:\n"))
+	sb.WriteString(fmt.Sprintf("#   terraform import 'module.%s.<resource_type>.this' %q\n", localName, resource.ID))
+	sb.WriteString(fmt.Sprintf("module %q {\n", localName))
+	sb.WriteString(fmt.Sprintf("  source  = %q\n", avmSource))
+	sb.WriteString(fmt.Sprintf("  version = \"~> 0.1\" # TODO: pin to latest tested version\n"))
+	for _, attr := range attrs {
+		sb.WriteString(fmt.Sprintf("  %s\n", attr))
+	}
+	sb.WriteString("}\n")
+	return sb.String()
+}
+
+func (g *HCLGenerator) avmModuleAttributes(resource ImportableResource) []string {
+	base := []string{
+		fmt.Sprintf("name                = %q", resource.Name),
+		"location            = var.location # TODO: verify",
+		fmt.Sprintf("resource_group_name = %q # TODO: verify", resource.ResourceGroup),
+	}
+	switch resource.TerraformType {
+	case "azurerm_key_vault":
+		return append(base, "tenant_id = data.azurerm_client_config.current.tenant_id")
+	case "azurerm_kubernetes_cluster":
+		return append(base,
+			"private_cluster_enabled = true # secure-by-default",
+		)
+	case "azurerm_container_registry":
+		return append(base, "sku = \"Premium\" # TODO: verify SKU")
+	case "azurerm_api_management":
+		return append(base,
+			"publisher_name  = \"\" # TODO: set publisher",
+			"publisher_email = \"\" # TODO: set publisher email",
+			"sku_name        = \"Developer_1\" # TODO: verify SKU",
+		)
+	default:
+		return append(base, "# TODO: add AVM-specific required attributes")
+	}
 }
 
 func (g *HCLGenerator) fileHeader() string {
@@ -127,6 +178,17 @@ func (g *HCLGenerator) inferLayer(azureType string) string {
 	case strings.Contains(normalized, "microsoft.operationalinsights"),
 		strings.Contains(normalized, "microsoft.automation"):
 		return "management"
+	// Blueprint workload types map to the landing-zone blueprint layer.
+	case strings.Contains(normalized, "microsoft.web"),
+		strings.Contains(normalized, "microsoft.apimanagement"):
+		return "blueprint-paas"
+	case strings.Contains(normalized, "microsoft.containerservice"),
+		strings.Contains(normalized, "microsoft.containerregistry"),
+		strings.Contains(normalized, "microsoft.app/managedenv"),
+		strings.Contains(normalized, "microsoft.app/container"):
+		return "blueprint-aks"
+	case strings.Contains(normalized, "microsoft.desktopvirtualization"):
+		return "blueprint-avd"
 	default:
 		return "general"
 	}
@@ -141,6 +203,7 @@ var nonAlphanumUnderscore = regexp.MustCompile(`[^a-z0-9_]+`)
 func (g *HCLGenerator) localName(resource ImportableResource) string {
 	name := strings.ToLower(strings.TrimSpace(resource.Name))
 	name = strings.ReplaceAll(name, "-", "_")
+	name = strings.ReplaceAll(name, " ", "_")
 	name = nonAlphanumUnderscore.ReplaceAllString(name, "")
 	if name == "" {
 		name = "imported"

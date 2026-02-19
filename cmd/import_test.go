@@ -158,6 +158,14 @@ func TestResolveTargetDir(t *testing.T) {
 	assert.Equal(t, filepath.Join("/root", "platform/connectivity"), dir)
 }
 
+func TestImportCmd_CIMode_RequiresSourceFlags(t *testing.T) {
+	t.Setenv("CI", "true")
+
+	_, _, err := executeCommand("import")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "--ci mode requires import source flags")
+}
+
 func testImportableResources() []importer.ImportableResource {
 	return []importer.ImportableResource{
 		{

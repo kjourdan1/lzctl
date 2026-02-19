@@ -20,4 +20,16 @@ steps:
           terraform -chdir="$d" validate
         fi
       done
-    displayName: Terraform validate
+    displayName: Terraform validate platform layers
+{{ if .Config.Spec.LandingZones }}
+  # Landing zones + blueprints
+  - script: |
+      set -euo pipefail
+      for d in {{ range .Config.Spec.LandingZones }}landing-zones/{{ .Name | slugify }} {{ if .Blueprint }}landing-zones/{{ .Name | slugify }}/blueprint {{ end }}{{ end }}; do
+        if [ -d "$d" ]; then
+          terraform -chdir="$d" init -backend=false -input=false
+          terraform -chdir="$d" validate
+        fi
+      done
+    displayName: Terraform validate landing zones and blueprints
+{{ end }}

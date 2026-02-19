@@ -24,8 +24,26 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: latest
-          args: --timeout=5m
+          version: v1.64.5
+          args: --timeout=5m --config=.golangci.yml
+
+  goreleaser-check:
+    name: GoReleaser Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Validate GoReleaser config
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: check --clean
 
   test:
     name: Test
@@ -43,7 +61,28 @@ jobs:
           cache: true
 
       - name: Run tests
-        run: go test -race -cover -coverprofile=coverage.out ./...
+        run: go test -race ./...
+
+      - name: Run coverage (Ubuntu only)
+        if: matrix.os == 'ubuntu-latest'
+        run: go test -coverprofile=coverage.out ./...
+
+      - name: Coverage gate (60% now, target 80%)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Coverage rollout policy:
+          # - current enforced threshold: 45% (baseline)
+          # - next threshold target: 60%
+          # - target threshold (PRD): 80% after E6/E7 completion
+          threshold=45
+          coverage=$(go tool cover -func=coverage.out | awk '/^total:/ {gsub("%", "", $3); print $3}')
+          echo "Total coverage: ${coverage}% (minimum ${threshold}%)"
+          awk -v c="$coverage" -v t="$threshold" 'BEGIN { exit (c+0 < t+0 ? 1 : 0) }' || {
+            echo "Coverage ${coverage}% is below threshold ${threshold}%"
+            exit 1
+          }
 
       - name: Upload coverage
         if: matrix.os == 'ubuntu-latest'
@@ -52,10 +91,19 @@ jobs:
           name: coverage
           path: coverage.out
 
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    needs: [lint, test]
+  build-and-smoke:
+    name: Build & Smoke
+    runs-on: ${{ matrix.os }}
+    needs: [lint, test, goreleaser-check]
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            ext: ""
+          - os: macos-latest
+            ext: ""
+          - os: windows-latest
+            ext: ".exe"
     steps:
       - uses: actions/checkout@v4
 
@@ -65,7 +113,20 @@ jobs:
           cache: true
 
       - name: Build
-        run: go build -trimpath -o bin/lzctl .
+        shell: bash
+        run: go build -trimpath -o bin/lzctl${{ matrix.ext }} .
 
       - name: Smoke test
-        run: ./bin/lzctl version
+        shell: bash
+        run: |
+          ./bin/lzctl${{ matrix.ext }} version
+          ./bin/lzctl${{ matrix.ext }} --help
+          ./bin/lzctl${{ matrix.ext }} doctor --help
+          mkdir -p smoke-repo
+          ./bin/lzctl${{ matrix.ext }} init --ci --tenant-id 00000000-0000-0000-0000-000000000001 --repo-root smoke-repo --dry-run
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lzctl-${{ matrix.os }}
+          path: bin/lzctl${{ matrix.ext }}

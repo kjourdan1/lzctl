@@ -295,6 +295,70 @@ func TestCheckResourceProvider_Error(t *testing.T) {
 	assert.Equal(t, StatusFail, r.Status)
 }
 
+// --- State backend check tests ---
+
+func TestCheckStateBackend_AzNotConnected(t *testing.T) {
+	ex := newMockExecutor()
+	ex.Set("", errors.New("not logged in"),
+		"az", "storage", "account", "list",
+		"--query", "[?tags.purpose=='terraform-state'].{name:name,rg:resourceGroup}",
+		"--output", "json")
+
+	check := checkStateBackend()
+	r := check.Run(context.Background(), ex)
+
+	assert.Equal(t, StatusWarn, r.Status)
+	assert.Contains(t, r.Message, "Could not query")
+}
+
+func TestCheckStateBackend_NoTaggedAccount(t *testing.T) {
+	ex := newMockExecutor()
+	ex.Set("[]", nil,
+		"az", "storage", "account", "list",
+		"--query", "[?tags.purpose=='terraform-state'].{name:name,rg:resourceGroup}",
+		"--output", "json")
+
+	check := checkStateBackend()
+	r := check.Run(context.Background(), ex)
+
+	assert.Equal(t, StatusWarn, r.Status)
+	assert.Contains(t, r.Message, "No storage account tagged")
+}
+
+func TestCheckStateBackend_FoundAndAccessible(t *testing.T) {
+	ex := newMockExecutor()
+	ex.Set(`[{"name":"stlzctlstate","rg":"rg-lz-tfstate"}]`, nil,
+		"az", "storage", "account", "list",
+		"--query", "[?tags.purpose=='terraform-state'].{name:name,rg:resourceGroup}",
+		"--output", "json")
+	ex.Set("true", nil,
+		"az", "storage", "account", "show",
+		"--name", "stlzctlstate", "--query", "properties.supportsHttpsTrafficOnly")
+
+	check := checkStateBackend()
+	r := check.Run(context.Background(), ex)
+
+	assert.Equal(t, StatusPass, r.Status)
+	assert.Contains(t, r.Message, "stlzctlstate")
+}
+
+func TestCheckStateBackend_FoundButInaccessible(t *testing.T) {
+	ex := newMockExecutor()
+	ex.Set(`[{"name":"stlzctlstate","rg":"rg-lz-tfstate"}]`, nil,
+		"az", "storage", "account", "list",
+		"--query", "[?tags.purpose=='terraform-state'].{name:name,rg:resourceGroup}",
+		"--output", "json")
+	ex.Set("", errors.New("forbidden"),
+		"az", "storage", "account", "show",
+		"--name", "stlzctlstate", "--query", "properties.supportsHttpsTrafficOnly")
+
+	check := checkStateBackend()
+	r := check.Run(context.Background(), ex)
+
+	assert.Equal(t, StatusWarn, r.Status)
+	assert.Contains(t, r.Message, "stlzctlstate")
+}
+
 // --- RunAll integration test ---
 
 func TestRunAll_AllPass(t *testing.T) {
@@ -314,11 +378,18 @@ func TestRunAll_AllPass(t *testing.T) {
 	ex.Set("Registered", nil, "az", "provider", "show", "-n", "Microsoft.Authorization", "--query", "registrationState", "-o", "tsv")
 	ex.Set("Registered", nil, "az", "provider", "show", "-n", "Microsoft.Network", "--query", "registrationState", "-o", "tsv")
 	ex.Set("Registered", nil, "az", "provider", "show", "-n", "Microsoft.ManagedIdentity", "--query", "registrationState", "-o", "tsv")
+	// State backend
+	ex.Set(`[{"name":"stlzctlstate","rg":"rg-lz-tfstate"}]`, nil,
+		"az", "storage", "account", "list",
+		"--query", "[?tags.purpose=='terraform-state'].{name:name,rg:resourceGroup}",
+		"--output", "json")
+	ex.Set("true", nil, "az", "storage", "account", "show",
+		"--name", "stlzctlstate", "--query", "properties.supportsHttpsTrafficOnly")
 
 	summary := RunAll(context.Background(), ex)
 
-	require.Len(t, summary.Results, 10)
-	assert.Equal(t, 10, summary.TotalPass)
+	require.Len(t, summary.Results, 11)
+	assert.Equal(t, 11, summary.TotalPass)
 	assert.Equal(t, 0, summary.TotalFail)
 	assert.False(t, summary.HasFailure)
 }
@@ -342,12 +413,17 @@ func TestRunAll_SomeFailures(t *testing.T) {
 	ex.Set("NotRegistered", nil, "az", "provider", "show", "-n", "Microsoft.Authorization", "--query", "registrationState", "-o", "tsv")
 	ex.Set("Registered", nil, "az", "provider", "show", "-n", "Microsoft.Network", "--query", "registrationState", "-o", "tsv")
 	ex.Set("Registered", nil, "az", "provider", "show", "-n", "Microsoft.ManagedIdentity", "--query", "registrationState", "-o", "tsv")
+	// State backend (not logged in → warn)
+	ex.Set("", fmt.Errorf("not authorized"),
+		"az", "storage", "account", "list",
+		"--query", "[?tags.purpose=='terraform-state'].{name:name,rg:resourceGroup}",
+		"--output", "json")
 
 	summary := RunAll(context.Background(), ex)
 
-	require.Len(t, summary.Results, 10)
+	require.Len(t, summary.Results, 11)
 	assert.True(t, summary.HasFailure)
-	assert.Equal(t, 1, summary.TotalWarn)  // gh only
+	assert.Equal(t, 2, summary.TotalWarn)  // gh + state-backend
 	assert.True(t, summary.TotalFail >= 4) // terraform, git, session, mg-access, authorization
 }
 

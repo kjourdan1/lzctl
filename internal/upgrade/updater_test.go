@@ -83,6 +83,24 @@ module "nsg" {
 	assert.Equal(t, "avm-res-network-networksecuritygroup", pins[0].Ref.Name)
 }
 
+func TestScanDirectory_IncludesBlueprintSubdirs(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	content := `
+module "kv" {
+  source  = "Azure/avm-res-keyvault-vault/azurerm"
+  version = "0.9.0"
+}
+`
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "landing-zones", "corp-lz", "blueprint"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "landing-zones", "corp-lz", "blueprint", "main.tf"), []byte(content), 0o644))
+
+	pins, err := ScanDirectory(tmpDir)
+	require.NoError(t, err)
+	require.Len(t, pins, 1)
+	assert.Equal(t, "avm-res-keyvault-vault", pins[0].Ref.Name)
+}
+
 func TestScanDirectory_SkipsTerraformDir(t *testing.T) {
 	tmpDir := t.TempDir()
 

@@ -1,0 +1,92 @@
+apiVersion: lzctl/v1
+kind: LandingZone
+metadata:
+  name: contoso-brownfield
+  tenant: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+  primaryRegion: westeurope
+
+spec:
+  platform:
+    managementGroups:
+      model: caf-standard
+    connectivity:
+      type: hub-spoke
+      hub:
+        region: westeurope
+        addressSpace: "10.0.0.0/16"
+        firewall:
+          enabled: true
+          sku: Standard
+          threatIntel: Deny
+        dns:
+          privateResolver: true
+        vpnGateway:
+          enabled: false
+        expressRouteGateway:
+          enabled: false
+    identity:
+      type: workload-identity-federation
+      clientId: "11111111-2222-3333-4444-555555555555"
+      principalId: "66666666-7777-8888-9999-aaaaaaaaaaaa"
+    management:
+      logAnalytics:
+        retentionDays: 90
+        solutions:
+          - SecurityCenter
+          - Updates
+      automationAccount: true
+      defenderForCloud:
+        enabled: true
+        plans:
+          - VirtualMachines
+          - SqlServers
+          - AppServices
+          - KeyVaults
+
+  governance:
+    policies:
+      assignments:
+        - deploy-mdfc-config
+        - deny-public-ip
+        - require-tags-rg
+
+  naming:
+    convention: caf
+
+  stateBackend:
+    resourceGroup: rg-lzctl-tfstate
+    storageAccount: stlzctlbfstate
+    container: tfstate
+    subscription: "bbbbbbbb-cccc-4ddd-8eee-000000000099"
+    versioning: true
+    softDelete: true
+    softDeleteDays: 30
+
+  landingZones:
+    - name: contoso-paas
+      subscription: "cccccccc-dddd-4eee-8fff-000000000001"
+      archetype: corp
+      addressSpace: "10.10.0.0/24"
+      connected: true
+      tags:
+        env: production
+        cost-center: cc-1234
+        team: platform-engineering
+      blueprint:
+        type: paas-secure
+        overrides:
+          appService:
+            sku: P2v3
+            runtimeStack: "DOTNET|8.0"
+          apim:
+            enabled: true
+            sku: Developer_1
+          keyVault:
+            softDeleteRetentionDays: 90
+
+  cicd:
+    platform: github-actions
+    repository: contoso/azure-landing-zones
+    branchPolicy:
+      mainBranch: main
+      requirePR: true

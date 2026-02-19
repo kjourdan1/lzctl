@@ -47,6 +47,10 @@ func init() {
 func runRollback(cmd *cobra.Command, args []string) error {
 	root, _ := filepath.Abs(repoRoot)
 
+	if effectiveCIMode() && !rollbackAutoApprove && !dryRun {
+		return exitcode.Wrap(exitcode.Validation, fmt.Errorf("--ci mode requires --auto-approve for rollback"))
+	}
+
 	if err := ensureTerraformInstalled(); err != nil {
 		return exitcode.Wrap(exitcode.Validation, err)
 	}

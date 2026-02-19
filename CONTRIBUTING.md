@@ -56,7 +56,14 @@ docs/             Documentation
 go test ./...                    # Tous les tests
 go test -v ./internal/config/... # Un package avec détails
 go test -race ./...              # Avec race detection
+make test-coverage-check         # Gate de couverture locale (palier actuel: 60%)
 ```
+
+### Politique de couverture
+
+- Palier actuel (CI): **45%** de couverture totale (`go test -coverprofile=coverage.out ./...`)
+- Paliers suivants: **60%** puis cible PRD **80%** après complétion des stories E6/E7
+- Les PR doivent rester au-dessus du seuil CI courant
 
 ## Licence
 

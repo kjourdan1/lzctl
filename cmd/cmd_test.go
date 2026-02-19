@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kjourdan1/lzctl/internal/azauth"
+	_ "github.com/kjourdan1/lzctl/schemas" // ensure JSON schema is loaded
 )
 
 // executeCommand runs a CLI command and captures output.
@@ -45,7 +46,7 @@ func TestRootCmd_Help(t *testing.T) {
 	stdout, _, err := executeCommand("--help")
 	require.NoError(t, err)
 	assert.Contains(t, stdout, "lzctl")
-	assert.Contains(t, stdout, "Azure landing zones")
+	assert.Contains(t, stdout, "Azure Landing Zones")
 }
 
 // ── Version command ─────────────────────────────────────────
@@ -76,6 +77,11 @@ func TestInitCmd_Help(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, stdout, "init")
 	assert.Contains(t, stdout, "lzctl.yaml")
+	assert.Contains(t, stdout, "--project-name")
+	assert.Contains(t, stdout, "--mg-model")
+	assert.Contains(t, stdout, "--connectivity")
+	assert.Contains(t, stdout, "--cicd-platform")
+	assert.Contains(t, stdout, "--state-strategy")
 }
 
 // ── Init command in temp dir ────────────────────────────────
@@ -137,6 +143,7 @@ func TestGlobalVerboseFlag_ShowsInHelp(t *testing.T) {
 	stdout, _, err := executeCommand("--help")
 	require.NoError(t, err)
 	assert.Contains(t, stdout, "--verbose")
+	assert.Contains(t, stdout, "--ci")
 }
 
 func TestAuditCommandRegistered(t *testing.T) {
@@ -149,3 +156,14 @@ func TestAuditCommandRegistered(t *testing.T) {
 	}
 	assert.True(t, found, "audit command should be registered")
 }
+
+	func TestAddBlueprintCommandRegistered(t *testing.T) {
+		found := false
+		for _, c := range rootCmd.Commands() {
+			if c.Use == "add-blueprint" {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "expected add-blueprint command to be registered")
+	}

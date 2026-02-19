@@ -1,0 +1,48 @@
+name: LZ Onboarding (Headless)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  onboarding:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build lzctl
+        run: go build -o bin/lzctl .
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Init (headless)
+        env:
+          CI: "true"
+        run: |
+          ./bin/lzctl init \
+            --ci \
+            --from-file docs/examples/pipeline-init/lzctl-init-input.yaml \
+            --repo-root .
+
+      - name: Validate
+        env:
+          CI: "true"
+        run: ./bin/lzctl validate --repo-root .
+
+      - name: Plan (dry-run)
+        env:
+          CI: "true"
+        run: ./bin/lzctl plan --repo-root .

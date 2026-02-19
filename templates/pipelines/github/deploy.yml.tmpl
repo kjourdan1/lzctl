@@ -41,4 +41,17 @@ jobs:
               terraform -chdir="$d" init -input=false -backend-config=../../backend.hcl
               terraform -chdir="$d" apply -auto-approve -input=false
             fi
+          done{{ if .Config.Spec.LandingZones }}
+      # ── Apply landing zones + blueprints (LZ → blueprint order) ──────
+      - name: Apply landing zones and blueprints
+        run: |
+          set -euo pipefail
+          for d in {{ range .Config.Spec.LandingZones }}landing-zones/{{ .Name | slugify }} {{ if .Blueprint }}landing-zones/{{ .Name | slugify }}/blueprint {{ end }}{{ end }}; do
+            if [ -d "$d" ]; then
+              echo "═══ Applying: $d ═══"
+              [[ "$d" == */blueprint ]] && BCFG="-backend-config=backend.hcl" || BCFG="-backend-config=../../backend.hcl"
+              terraform -chdir="$d" init -input=false $BCFG
+              terraform -chdir="$d" apply -auto-approve -input=false
+            fi
           done
+{{ end }}

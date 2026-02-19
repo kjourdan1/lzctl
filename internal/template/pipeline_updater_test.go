@@ -52,6 +52,44 @@ func TestWriteLandingZoneMatrix(t *testing.T) {
 	assert.Contains(t, path, "zone-matrix.json")
 }
 
+func TestGenerateZoneMatrix_WithBlueprint(t *testing.T) {
+	cfg := &config.LZConfig{
+		Spec: config.Spec{
+			LandingZones: []config.LandingZone{
+				{Name: "app-prod", Archetype: "corp", Blueprint: &config.Blueprint{Type: "paas-secure"}},
+				{Name: "sandbox-dev", Archetype: "sandbox"},
+			},
+		},
+	}
+
+	result := GenerateZoneMatrix(cfg)
+	// Landing zone entry always present
+	assert.Contains(t, result, `"dir": "landing-zones/app-prod"`)
+	// Blueprint entry follows the zone
+	assert.Contains(t, result, `"dir": "landing-zones/app-prod/blueprint"`)
+	assert.Contains(t, result, `"blueprintType": "paas-secure"`)
+	// Zone without blueprint has no blueprint entry
+	assert.NotContains(t, result, `"dir": "landing-zones/sandbox-dev/blueprint"`)
+}
+
+func TestLandingZoneDirs_WithBlueprint(t *testing.T) {
+	cfg := &config.LZConfig{
+		Spec: config.Spec{
+			LandingZones: []config.LandingZone{
+				{Name: "corp-a", Archetype: "corp", Blueprint: &config.Blueprint{Type: "aks-platform"}},
+				{Name: "sandbox-b", Archetype: "sandbox"},
+			},
+		},
+	}
+
+	dirs := LandingZoneDirs(cfg)
+	require.Equal(t, []string{
+		"landing-zones/corp-a",
+		"landing-zones/corp-a/blueprint",
+		"landing-zones/sandbox-b",
+	}, dirs)
+}
+
 func TestPipelineUpdater_DryRun(t *testing.T) {
 	cfg := &config.LZConfig{
 		Spec: config.Spec{

@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strings"
 	texttemplate "text/template"
+
+	"github.com/kjourdan1/lzctl/internal/config"
 )
 
 // HelperFuncMap returns template helper functions.
@@ -18,7 +20,46 @@ func HelperFuncMap() texttemplate.FuncMap {
 		"slugify":        Slugify,
 		"storageAccName": StorageAccountName,
 		"toJSON":         ToJSON,
+		"dnsZoneRef":     DNSZoneRef,
 	}
+}
+
+// DNSZoneRef returns the central Private DNS zone name for a known Azure service.
+func DNSZoneRef(serviceType string) string {
+	s := strings.ToLower(strings.TrimSpace(serviceType))
+	switch s {
+	case "appservice", "function", "functions", "azurewebsites":
+		return "privatelink.azurewebsites.net"
+	case "keyvault", "vault":
+		return "privatelink.vaultcore.azure.net"
+	case "apim", "api-management":
+		return "privatelink.azure-api.net"
+	case "acr", "containerregistry":
+		return "privatelink.azurecr.io"
+	case "aks":
+		return "privatelink.<region>.azmk8s.io"
+	default:
+		return ""
+	}
+}
+
+// ConnectivityRemoteState returns an azurerm remote state block targeting connectivity state.
+func ConnectivityRemoteState(cfg *config.LZConfig) string {
+	if cfg == nil {
+		return ""
+	}
+	return fmt.Sprintf(`data "terraform_remote_state" "connectivity" {
+  backend = "azurerm"
+  config = {
+    resource_group_name  = %q
+    storage_account_name = %q
+    container_name       = %q
+    key                  = "platform-connectivity.tfstate"
+    subscription_id      = %q
+    use_azuread_auth     = true
+  }
+}
+`, cfg.Spec.StateBackend.ResourceGroup, cfg.Spec.StateBackend.StorageAccount, cfg.Spec.StateBackend.Container, cfg.Spec.StateBackend.Subscription)
 }
 
 // ToJSON marshals a value to a compact JSON string for template rendering.

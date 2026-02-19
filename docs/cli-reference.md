@@ -11,6 +11,7 @@ Full reference for all `lzctl` commands, flags, and environment variables.
 | `--verbose` | `-v` | `0` | `LZCTL_VERBOSE` | Verbosity level (0-3) |
 | `--dry-run` | | `false` | | Simulate without making changes |
 | `--json` | | `false` | | Output in JSON format |
+| `--ci` | | `false` | `CI=true` (auto) | Strict non-interactive mode |
 
 ## Commands
 
@@ -25,6 +26,18 @@ lzctl init [flags]
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--tenant-id` | interactive | Azure AD tenant ID |
+| `--subscription-id` | auto-detected | Azure Subscription ID |
+| `--from-file` | | One-shot init input converted to `lzctl.yaml` |
+| `--project-name` | `landing-zone` | Project name |
+| `--mg-model` | `caf-standard` | Management group model (`caf-standard`, `caf-lite`) |
+| `--connectivity` | `hub-spoke` | Connectivity model (`hub-spoke`, `vwan`, `none`) |
+| `--identity` | `workload-identity-federation` | Identity model |
+| `--primary-region` | `westeurope` | Primary region |
+| `--secondary-region` | | Secondary region |
+| `--cicd-platform` | `github-actions` | CI/CD platform (`github-actions`, `azure-devops`) |
+| `--state-strategy` | `create-new` | State strategy (`create-new`, `existing`, `terraform-cloud`) |
+
+In CI mode (`--ci` or `CI=true`), `init` requires `--tenant-id` (or `LZCTL_TENANT_ID`) unless `--from-file` is used.
 
 ### `lzctl plan`
 
@@ -51,6 +64,8 @@ lzctl apply [flags]
 |------|---------|-------------|
 | `--layer` | all | Specific layer |
 | `--auto-approve` | `false` | Skip approval prompt |
+
+In CI mode, `apply` requires `--auto-approve` (except with `--dry-run`).
 
 ### `lzctl validate`
 
@@ -104,6 +119,8 @@ lzctl rollback [flags]
 | `--layer` | all | Specific layer to rollback |
 | `--to` | | Timestamp to rollback to (ISO 8601) |
 | `--auto-approve` | `false` | Skip confirmation prompt |
+
+In CI mode, `rollback` requires `--auto-approve` (except with `--dry-run`).
 
 ### `lzctl assess`
 
@@ -318,6 +335,18 @@ lzctl version
 ## Environment Variables
 
 All flags can be set via environment variables with the `LZCTL_` prefix:
+
+- `LZCTL_TENANT_ID`
+- `LZCTL_SUBSCRIPTION_ID`
+- `LZCTL_FROM_FILE`
+- `LZCTL_PROJECT_NAME`
+- `LZCTL_MG_MODEL`
+- `LZCTL_CONNECTIVITY`
+- `LZCTL_IDENTITY`
+- `LZCTL_PRIMARY_REGION`
+- `LZCTL_SECONDARY_REGION`
+- `LZCTL_CICD_PLATFORM`
+- `LZCTL_STATE_STRATEGY`
 
 ```bash
 export LZCTL_REPO_ROOT=/path/to/repo

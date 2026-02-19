@@ -1,0 +1,34 @@
+trigger: none
+pr: none
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - checkout: self
+
+  - task: GoTool@0
+    inputs:
+      version: '1.24.x'
+
+  - script: |
+      go build -o bin/lzctl .
+    displayName: Build lzctl
+
+  - task: AzureCLI@2
+    displayName: Init Validate Plan (headless)
+    inputs:
+      azureSubscription: $(AZURE_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        set -euo pipefail
+        export CI=true
+
+        ./bin/lzctl init \
+          --ci \
+          --from-file docs/examples/pipeline-init/lzctl-init-input.yaml \
+          --repo-root .
+
+        ./bin/lzctl validate --repo-root .
+        ./bin/lzctl plan --repo-root .

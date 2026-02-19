@@ -46,6 +46,10 @@ func init() {
 func runApply(cmd *cobra.Command, args []string) error {
 	root, _ := filepath.Abs(repoRoot)
 
+	if effectiveCIMode() && !applyAutoApprove && !dryRun {
+		return exitcode.Wrap(exitcode.Validation, fmt.Errorf("--ci mode requires --auto-approve for apply"))
+	}
+
 	if err := ensureTerraformInstalled(); err != nil {
 		return exitcode.Wrap(exitcode.Validation, err)
 	}

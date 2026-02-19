@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 
 	"github.com/kjourdan1/lzctl/internal/azauth"
 	stateboot "github.com/kjourdan1/lzctl/internal/bootstrap"
@@ -47,6 +50,15 @@ It never pushes to any remote.`,
 var (
 	initTenantID       string
 	initSubscriptionID string
+	initFromFile       string
+	initProjectName    string
+	initMGModel        string
+	initConnectivity   string
+	initIdentity       string
+	initPrimaryRegion  string
+	initSecondaryRegion string
+	initCICDPlatform   string
+	initStateStrategy  string
 	initForce          bool
 	initNoBootstrap    bool
 )
@@ -54,28 +66,179 @@ var (
 func init() {
 	initCmd.Flags().StringVar(&initTenantID, "tenant-id", "", "Azure AD tenant ID (auto-detected from Azure CLI if omitted)")
 	initCmd.Flags().StringVar(&initSubscriptionID, "subscription-id", "", "Azure Subscription ID (auto-detected from Azure CLI if omitted)")
+	initCmd.Flags().StringVar(&initFromFile, "from-file", "", "path to one-shot init input YAML (converted to lzctl.yaml)")
+	initCmd.Flags().StringVar(&initProjectName, "project-name", "landing-zone", "project name")
+	initCmd.Flags().StringVar(&initMGModel, "mg-model", "caf-standard", "management group model (caf-standard|caf-lite)")
+	initCmd.Flags().StringVar(&initConnectivity, "connectivity", "hub-spoke", "connectivity model (hub-spoke|vwan|none)")
+	initCmd.Flags().StringVar(&initIdentity, "identity", "workload-identity-federation", "identity model (workload-identity-federation|sp-federated|sp-secret)")
+	initCmd.Flags().StringVar(&initPrimaryRegion, "primary-region", "westeurope", "primary Azure region")
+	initCmd.Flags().StringVar(&initSecondaryRegion, "secondary-region", "", "secondary Azure region (optional)")
+	initCmd.Flags().StringVar(&initCICDPlatform, "cicd-platform", "github-actions", "CI/CD platform (github-actions|azure-devops)")
+	initCmd.Flags().StringVar(&initStateStrategy, "state-strategy", "create-new", "state backend strategy (create-new|existing|terraform-cloud)")
 	initCmd.Flags().BoolVar(&initForce, "force", false, "overwrite existing files")
 	initCmd.Flags().BoolVar(&initNoBootstrap, "no-bootstrap", false, "skip automatic state backend provisioning")
 
+	_ = bindInitEnv()
+
 	rootCmd.AddCommand(initCmd)
+}
+
+func bindInitEnv() error {
+	binding := []struct {
+		key     string
+		flag    string
+		envName string
+	}{
+		{key: "tenant_id", flag: "tenant-id", envName: "LZCTL_TENANT_ID"},
+		{key: "subscription_id", flag: "subscription-id", envName: "LZCTL_SUBSCRIPTION_ID"},
+		{key: "from_file", flag: "from-file", envName: "LZCTL_FROM_FILE"},
+		{key: "project_name", flag: "project-name", envName: "LZCTL_PROJECT_NAME"},
+		{key: "mg_model", flag: "mg-model", envName: "LZCTL_MG_MODEL"},
+		{key: "connectivity", flag: "connectivity", envName: "LZCTL_CONNECTIVITY"},
+		{key: "identity", flag: "identity", envName: "LZCTL_IDENTITY"},
+		{key: "primary_region", flag: "primary-region", envName: "LZCTL_PRIMARY_REGION"},
+		{key: "secondary_region", flag: "secondary-region", envName: "LZCTL_SECONDARY_REGION"},
+		{key: "cicd_platform", flag: "cicd-platform", envName: "LZCTL_CICD_PLATFORM"},
+		{key: "state_strategy", flag: "state-strategy", envName: "LZCTL_STATE_STRATEGY"},
+	}
+
+	for _, b := range binding {
+		if err := bindPFlagAndEnv(initCmd, b.key, b.flag, b.envName); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func bindPFlagAndEnv(c *cobra.Command, key, flag, env string) error {
+	if err := viper.BindPFlag(key, c.Flags().Lookup(flag)); err != nil {
+		return err
+	}
+	if err := viper.BindEnv(key, env); err != nil {
+		return err
+	}
+	return nil
+}
+
+func resolveInitValue(cmd *cobra.Command, flagName, flagValue, envName, defaultValue string) string {
+	if cmd != nil && cmd.Flags().Changed(flagName) {
+		return strings.TrimSpace(flagValue)
+	}
+	if envValue := strings.TrimSpace(os.Getenv(envName)); envValue != "" {
+		return envValue
+	}
+	if strings.TrimSpace(flagValue) != "" {
+		return strings.TrimSpace(flagValue)
+	}
+	return defaultValue
+}
+
+func validateInitEnum(name, value string, allowed []string) error {
+	v := strings.TrimSpace(strings.ToLower(value))
+	for _, candidate := range allowed {
+		if v == candidate {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid value for --%s: %q (allowed: %s)", name, value, strings.Join(allowed, ", "))
+}
+
+func validateInitInputs(mgModel, connectivity, identity, cicdPlatform, stateStrategy string) error {
+	if err := validateInitEnum("mg-model", mgModel, []string{"caf-standard", "caf-lite"}); err != nil {
+		return err
+	}
+	if err := validateInitEnum("connectivity", connectivity, []string{"hub-spoke", "vwan", "none"}); err != nil {
+		return err
+	}
+	if err := validateInitEnum("identity", identity, []string{"workload-identity-federation", "sp-federated", "sp-secret"}); err != nil {
+		return err
+	}
+	if err := validateInitEnum("cicd-platform", cicdPlatform, []string{"github-actions", "azure-devops"}); err != nil {
+		return err
+	}
+	if err := validateInitEnum("state-strategy", stateStrategy, []string{"create-new", "existing", "terraform-cloud"}); err != nil {
+		return err
+	}
+	return nil
 }
 
 func runInit(cmd *cobra.Command) error {
 	output.Init(verbosity > 0, jsonOutput)
 
+	fromFile := resolveInitValue(cmd, "from-file", initFromFile, "LZCTL_FROM_FILE", "")
+	tenantID := resolveInitValue(cmd, "tenant-id", initTenantID, "LZCTL_TENANT_ID", "")
+	subscriptionID := resolveInitValue(cmd, "subscription-id", initSubscriptionID, "LZCTL_SUBSCRIPTION_ID", "")
+	projectName := resolveInitValue(cmd, "project-name", initProjectName, "LZCTL_PROJECT_NAME", "landing-zone")
+	mgModel := resolveInitValue(cmd, "mg-model", initMGModel, "LZCTL_MG_MODEL", "caf-standard")
+	connectivity := resolveInitValue(cmd, "connectivity", initConnectivity, "LZCTL_CONNECTIVITY", "hub-spoke")
+	identity := resolveInitValue(cmd, "identity", initIdentity, "LZCTL_IDENTITY", "workload-identity-federation")
+	primaryRegion := resolveInitValue(cmd, "primary-region", initPrimaryRegion, "LZCTL_PRIMARY_REGION", "westeurope")
+	secondaryRegion := resolveInitValue(cmd, "secondary-region", initSecondaryRegion, "LZCTL_SECONDARY_REGION", "")
+	cicdPlatform := resolveInitValue(cmd, "cicd-platform", initCICDPlatform, "LZCTL_CICD_PLATFORM", "github-actions")
+	stateStrategy := resolveInitValue(cmd, "state-strategy", initStateStrategy, "LZCTL_STATE_STRATEGY", "create-new")
+
+	initTenantID = tenantID
+	initSubscriptionID = subscriptionID
+
+	if effectiveCIMode() && cfgFile == "" && strings.TrimSpace(fromFile) == "" && tenantID == "" {
+		return fmt.Errorf("--ci mode requires --tenant-id (or LZCTL_TENANT_ID)")
+	}
+
 	absRoot, err := filepath.Abs(repoRoot)
 	if err != nil {
 		return fmt.Errorf("resolving repo root: %w", err)
 	}
+	if strings.TrimSpace(fromFile) != "" {
+		if strings.TrimSpace(cfgFile) != "" {
+			return fmt.Errorf("--from-file cannot be combined with --config")
+		}
+		configPath := filepath.Join(absRoot, "lzctl.yaml")
+		if fileExistsLocal(configPath) && !initForce {
+			return fmt.Errorf("lzctl.yaml already exists, use --force to overwrite")
+		}
+	}
 
 	var cfg *config.LZConfig
 	var wizardCfg *wizard.InitConfig
-	if cfgFile != "" {
+	if strings.TrimSpace(fromFile) != "" {
+		inputCfg, loadErr := config.LoadInitInput(fromFile)
+		if loadErr != nil {
+			return fmt.Errorf("loading init input from --from-file %q: %w", fromFile, loadErr)
+		}
+		cfg, err = inputCfg.ToLZConfig()
+		if err != nil {
+			return fmt.Errorf("converting --from-file input to lzctl config: %w", err)
+		}
+	} else if cfgFile != "" {
 		cfg, err = config.Load(cfgFile)
 		if err != nil {
 			return fmt.Errorf("loading config from --config %q: %w", cfgFile, err)
 		}
+	} else if tenantID != "" {
+		if err := validateInitInputs(mgModel, connectivity, identity, cicdPlatform, stateStrategy); err != nil {
+			return err
+		}
+
+		// Non-interactive mode: --tenant-id or LZCTL_TENANT_ID was supplied.
+		wizardCfg = &wizard.InitConfig{
+			ProjectName:          projectName,
+			TenantID:             tenantID,
+			CICDPlatform:         cicdPlatform,
+			ManagementGroupModel: mgModel,
+			ConnectivityModel:    connectivity,
+			PrimaryRegion:        primaryRegion,
+			SecondaryRegion:      secondaryRegion,
+			IdentityModel:        identity,
+			StateBackendStrategy: stateStrategy,
+			Bootstrap:            false, // never auto-bootstrap in non-interactive mode
+			FirewallSKU:          "Standard",
+		}
+		cfg = wizardCfg.ToLZConfig()
 	} else {
+		if effectiveCIMode() {
+			return fmt.Errorf("--ci mode requires --tenant-id (or LZCTL_TENANT_ID)")
+		}
+
 		var runErr error
 		wizardCfg, runErr = wizard.NewInitWizard(nil).Run()
 		if runErr != nil {
@@ -107,6 +270,13 @@ func runInit(cmd *cobra.Command) error {
 			output.Error(fmt.Sprintf("%s: %s", v.Field, v.Description))
 		}
 		return fmt.Errorf("config validation failed")
+	}
+
+	if dryRun && strings.TrimSpace(fromFile) != "" && !jsonOutput {
+		manifestYAML, marshalErr := yaml.Marshal(cfg)
+		if marshalErr == nil {
+			fmt.Fprintln(os.Stdout, string(manifestYAML))
+		}
 	}
 
 	engine, err := lztemplate.NewEngine()

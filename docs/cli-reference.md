@@ -324,6 +324,131 @@ Remove a landing zone from the project configuration.
 lzctl workload remove <name>
 ```
 
+---
+
+### `lzctl add-blueprint`
+
+Attach a secure, opinionated blueprint to an existing landing zone. Generates Terraform files under `landing-zones/<name>/blueprint/` and automatically updates `.lzctl/zone-matrix.json` and all CI/CD pipeline files.
+
+```bash
+lzctl add-blueprint [flags]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--landing-zone` | required (interactive) | Target landing zone name |
+| `--type` | required (interactive) | Blueprint type (`paas-secure`, `aks-platform`, `aca-platform`, `avd-secure`) |
+| `--set` | | Override in `path=value` format (repeatable) |
+| `--overwrite` | `false` | Replace an existing blueprint |
+
+In CI mode (`--ci` or `CI=true`), `--landing-zone` and `--type` are required.
+
+**Examples:**
+
+```bash
+# Attach a PaaS blueprint (interactive)
+lzctl add-blueprint
+
+# CI / headless
+lzctl add-blueprint --ci \
+  --landing-zone app-prod \
+  --type paas-secure \
+  --set appService.sku=P2v3 \
+  --set apim.enabled=true
+
+# AKS with ArgoCD
+lzctl add-blueprint --ci \
+  --landing-zone aks-infra \
+  --type aks-platform \
+  --set argocd.enabled=true \
+  --set argocd.mode=helm \
+  --set argocd.repoUrl=https://github.com/myorg/gitops \
+  --set argocd.targetRevision=main
+```
+
+**Blueprint types and generated files:**
+
+| Type | Generated files |
+|------|----------------|
+| `paas-secure` | `main.tf`, `variables.tf`, `blueprint.auto.tfvars`, `backend.hcl` |
+| `aks-platform` | above + `argocd/appset.yaml` (if ArgoCD enabled), `Makefile` |
+| `aca-platform` | `main.tf`, `variables.tf`, `blueprint.auto.tfvars`, `backend.hcl` |
+| `avd-secure` | `main.tf`, `variables.tf`, `blueprint.auto.tfvars`, `backend.hcl` |
+
+**paas-secure overrides:**
+
+| Path | Default | Description |
+|------|---------|-------------|
+| `appService.sku` | `P1v3` | App Service Plan SKU |
+| `appService.runtimeStack` | `DOTNET\|8.0` | Runtime stack |
+| `apim.enabled` | `false` | Deploy API Management |
+| `apim.sku` | `Developer` | APIM SKU |
+
+**aks-platform overrides:**
+
+| Path | Default | Description |
+|------|---------|-------------|
+| `aks.kubernetesVersion` | `1.29` | Kubernetes version |
+| `aks.nodeCount` | `3` | System node count |
+| `aks.vmSize` | `Standard_D4s_v5` | System node VM size |
+| `acr.sku` | `Premium` | Container Registry SKU |
+| `defender.enabled` | `true` | Microsoft Defender for Containers |
+| `argocd.enabled` | `false` | Deploy ArgoCD |
+| `argocd.mode` | `extension` | ArgoCD deployment mode (`extension` \| `helm`) |
+| `argocd.repoUrl` | | GitOps repository URL (required when enabled) |
+| `argocd.targetRevision` | `HEAD` | Git branch / tag / commit |
+| `argocd.appPath` | `apps` | Path within the repo for ApplicationSet |
+
+---
+
+### `lzctl import`
+
+Generate Terraform import blocks and HCL configuration for existing Azure resources. When a resource type has a matching Azure Verified Module, an AVM stub is generated instead of a raw `resource` block.
+
+```bash
+lzctl import [flags]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--from` | | Path to an audit JSON report |
+| `--subscription` | | Subscription ID for live discovery |
+| `--resource-group` | | Resource group for live discovery |
+| `--include` | | Resource types to include (comma-separated) |
+| `--exclude` | | Resource types to exclude (comma-separated) |
+| `--layer` | auto | Target layer for generated files (use `landing-zones/<name>/blueprint` for blueprint layers) |
+
+In CI mode, at least one of `--from`, `--subscription`, or `--resource-group` is required.
+
+**Examples:**
+
+```bash
+# Import from audit report
+lzctl import --from audit-report.json
+
+# Import directly from a resource group
+lzctl import --resource-group rg-core --layer connectivity
+
+# Target a blueprint layer
+lzctl import --from audit-report.json --layer landing-zones/app-prod/blueprint
+
+# Dry-run (no files written)
+lzctl import --from audit-report.json --dry-run
+```
+
+**AVM modules auto-detected:**
+
+| Azure resource type | AVM module |
+|--------------------|-----------|
+| `azurerm_key_vault` | `Azure/avm-res-keyvault-vault/azurerm` |
+| `azurerm_linux_web_app` / `azurerm_windows_web_app` | `Azure/avm-res-web-site/azurerm` |
+| `azurerm_service_plan` | `Azure/avm-res-web-serverfarm/azurerm` |
+| `azurerm_api_management` | `Azure/avm-res-apimanagement-service/azurerm` |
+| `azurerm_kubernetes_cluster` | `Azure/avm-res-containerservice-managedcluster/azurerm` |
+| `azurerm_container_registry` | `Azure/avm-res-containerregistry-registry/azurerm` |
+
+---
+
 ### `lzctl version`
 
 Show version information.

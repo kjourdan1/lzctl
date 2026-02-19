@@ -1,75 +1,92 @@
-# Documentation des commandes lzctl
+# lzctl Command Reference
 
-## Flags globaux
+## Global Flags
 
-| Flag | Court | Défaut | Description |
-|------|-------|--------|-------------|
-| `--config` | | `lzctl.yaml` | Fichier de configuration |
-| `--repo-root` | | `.` | Racine du repository |
-| `--verbose` | `-v` | `0` | Verbosité (-v, -vv, -vvv) |
-| `--dry-run` | | `false` | Simuler sans modifier Azure |
-| `--json` | | `false` | Sortie JSON |
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--config` | | `lzctl.yaml` | Config file path |
+| `--repo-root` | | `.` | Repository root path |
+| `--verbose` | `-v` | `0` | Verbosity (-v, -vv, -vvv) |
+| `--dry-run` | | `false` | Simulate without modifying Azure |
+| `--json` | | `false` | Machine-readable JSON output |
+| `--ci` | | `false` | Non-interactive mode (auto-detected via `CI=true`) |
 
-## Commandes
+## Commands
 
 ### Scaffolding & Configuration
 
-| Commande | Description | Doc |
-|----------|-------------|-----|
-| [init](init.md) | Initialiser un projet landing zone | ✅ |
-| [validate](validate.md) | Valider lzctl.yaml et la configuration Terraform | ✅ |
-| [select](select.md) | Parcourir le catalogue CAF | — |
-| [schema](schema.md) | Exporter/valider le schéma JSON | — |
-| [docs](docs.md) | Générer la documentation du projet | — |
+| Command | Description | Doc |
+|---------|-------------|-----|
+| [init](init.md) | Initialise a landing zone project | ✅ |
+| [validate](validate.md) | Validate `lzctl.yaml` and Terraform configuration | ✅ |
+| [select](select.md) | Browse the CAF layer catalogue | — |
+| [schema](schema.md) | Export / validate the JSON schema | — |
+| [docs](docs.md) | Generate project documentation | — |
 
-### Opérations Terraform
+### Terraform Operations
 
-| Commande | Description | Doc |
-|----------|-------------|-----|
-| [plan](plan.md) | Plan multi-couche en ordre CAF | ✅ |
-| [apply](apply.md) | Apply multi-couche en ordre CAF | ✅ |
-| [drift](drift.md) | Détecter le drift d'infrastructure | ✅ |
-| [rollback](rollback.md) | Rollback en ordre inverse CAF | — |
+| Command | Description | Doc |
+|---------|-------------|-----|
+| [plan](plan.md) | Multi-layer plan in CAF dependency order | ✅ |
+| [apply](apply.md) | Multi-layer apply in CAF dependency order | ✅ |
+| [drift](drift.md) | Detect infrastructure drift | ✅ |
+| [rollback](rollback.md) | Rollback layers in reverse CAF order | — |
+
+### Blueprints
+
+| Command | Description | Doc |
+|---------|-------------|-----|
+| [add-blueprint](add-blueprint.md) | Attach a secure blueprint to a landing zone | ✅ |
+
+Blueprint types generate a Terraform layer under `landing-zones/<name>/blueprint/`
+and automatically update the CI/CD pipeline matrix.
+
+| Type | Description |
+|------|-------------|
+| `paas-secure` | App Service + APIM + Key Vault, all behind Private Endpoints |
+| `aks-platform` | Private AKS + ACR + Key Vault + optional ArgoCD GitOps |
+| `aca-platform` | Container Apps environment + Key Vault + Private Endpoints |
+| `avd-secure` | Azure Virtual Desktop session hosts + FSLogix + Private DNS |
 
 ### Day-2
 
-| Commande | Description | Doc |
-|----------|-------------|-----|
-| [status](status.md) | Aperçu de l'état du projet | ✅ |
-| [upgrade](upgrade.md) | Vérifier/appliquer les mises à jour AVM | ✅ |
-| [audit](audit.md) | Audit de conformité CAF | ✅ |
-| [assess](assess.md) | Évaluation de la maturité | — |
-| [import](import.md) | Générer des blocs d'import Terraform | ✅ |
-| [doctor](doctor.md) | Vérifier les prérequis | ✅ |
+| Command | Description | Doc |
+|---------|-------------|-----|
+| [status](status.md) | Project state overview | ✅ |
+| [upgrade](upgrade.md) | Check / apply AVM module updates | ✅ |
+| [audit](audit.md) | CAF compliance audit | ✅ |
+| [assess](assess.md) | Maturity assessment | — |
+| [import](import.md) | Generate Terraform import blocks (with AVM stubs) | ✅ |
+| [doctor](doctor.md) | Check prerequisites | ✅ |
 
 ### State Management
 
-| Commande | Description |
-|----------|-------------|
-| `lzctl state list` | Lister les fichiers d'état |
-| `lzctl state snapshot` | Créer un snapshot |
-| `lzctl state health` | Vérifier la sécurité du backend |
-| `lzctl state unlock` | Débloquer un lease |
+| Command | Description |
+|---------|-------------|
+| `lzctl state list` | List Terraform state files |
+| `lzctl state snapshot` | Snapshot state files |
+| `lzctl state health` | Check state backend security posture |
+| `lzctl state unlock` | Force-unlock a stuck lease |
 
-Voir [State Management Guide](../operations/state-management.md).
+See [State Management Guide](../operations/state-management.md).
 
 ### Policy-as-Code
 
-| Commande | Description |
-|----------|-------------|
-| `lzctl policy create` | Scaffolder une définition |
-| `lzctl policy test` | Déployer en audit mode |
-| `lzctl policy verify` | Rapport de conformité |
-| `lzctl policy remediate` | Créer des tâches de remédiation |
-| `lzctl policy deploy` | Passer en enforcement |
-| `lzctl policy status` | État du workflow |
-| `lzctl policy diff` | Comparer local vs déployé |
+| Command | Description |
+|---------|-------------|
+| `lzctl policy create` | Scaffold a policy definition |
+| `lzctl policy test` | Deploy in DoNotEnforce (audit) mode |
+| `lzctl policy verify` | Generate a compliance report |
+| `lzctl policy remediate` | Create remediation tasks |
+| `lzctl policy deploy` | Switch to Default enforcement |
+| `lzctl policy status` | Show policy workflow state |
+| `lzctl policy diff` | Compare local vs. deployed policy |
 
 ### Workload Management
 
-| Commande | Description |
-|----------|-------------|
-| `lzctl workload add` | Ajouter une landing zone |
-| `lzctl workload adopt` | Adopter une subscription existante |
-| `lzctl workload list` | Lister les landing zones |
-| `lzctl workload remove` | Supprimer une landing zone |
+| Command | Description |
+|---------|-------------|
+| `lzctl workload add` | Add a landing zone |
+| `lzctl workload adopt` | Adopt an existing subscription (brownfield) |
+| `lzctl workload list` | List landing zones |
+| `lzctl workload remove` | Remove a landing zone |

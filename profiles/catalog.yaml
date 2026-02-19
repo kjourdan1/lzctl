@@ -1,0 +1,4 @@
+# Canonical source: internal/profiles/catalog.yaml (embedded in binary)
+# This file is kept for documentation. Edit the canonical source.
+# To use custom catalog: lzctl select --catalog <path>
+

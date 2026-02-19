@@ -1,0 +1,83 @@
+apiVersion: lzctl/v1
+kind: LandingZone
+metadata:
+  name: contoso-alz
+  tenant: contoso.onmicrosoft.com
+  primaryRegion: westeurope
+  secondaryRegion: northeurope
+spec:
+  platform:
+    managementGroups:
+      model: caf-standard
+    connectivity:
+      type: hub-spoke
+      hub:
+        region: westeurope
+        addressSpace: 10.0.0.0/16
+        firewall:
+          enabled: true
+          sku: Premium
+          threatIntel: Deny
+        dns:
+          privateResolver: true
+          forwarders:
+            - 10.0.0.4
+        vpnGateway:
+          enabled: false
+        expressRouteGateway:
+          enabled: true
+          sku: Standard
+    identity:
+      type: workload-identity-federation
+    management:
+      logAnalytics:
+        retentionDays: 90
+        solutions:
+          - SecurityInsights
+          - VMInsights
+      automationAccount: true
+      defenderForCloud:
+        enabled: true
+        plans:
+          - AppServices
+          - ContainerRegistry
+          - KeyVaults
+          - SqlServers
+          - StorageAccounts
+          - VirtualMachines
+  governance:
+    policies:
+      assignments:
+        - deploy-mdfc-config
+        - deploy-sql-security
+      custom:
+        - deny-public-ip
+  naming:
+    convention: caf
+    overrides:
+      resourceGroup: rg
+  stateBackend:
+    resourceGroup: rg-lzctl-state
+    storageAccount: stlzctltfstate
+    container: tfstate
+    subscription: 00000000-0000-0000-0000-000000000000
+  landingZones:
+    - name: lz-corp-app1
+      subscription: 11111111-1111-1111-1111-111111111111
+      archetype: corp
+      addressSpace: 10.1.0.0/16
+      connected: true
+      tags:
+        environment: production
+        costCenter: IT-001
+    - name: lz-online-web
+      subscription: 22222222-2222-2222-2222-222222222222
+      archetype: online
+      addressSpace: 10.2.0.0/16
+      connected: true
+  cicd:
+    platform: github-actions
+    repository: contoso/landing-zones
+    branchPolicy:
+      mainBranch: main
+      requirePR: true

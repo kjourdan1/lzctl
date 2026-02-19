@@ -1,0 +1,87 @@
+# GoReleaser configuration for lzctl
+# https://goreleaser.com/customization/
+
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - id: lzctl
+    binary: lzctl
+    main: .
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X '{{ .ModulePath }}/cmd.Version={{ .Version }}'
+      - -X '{{ .ModulePath }}/cmd.Commit={{ .ShortCommit }}'
+      - -X '{{ .ModulePath }}/cmd.BuildDate={{ .Date }}'
+    flags:
+      - -trimpath
+
+archives:
+  - id: default
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^chore:"
+      - "^ci:"
+      - "^test:"
+      - "^style:"
+  groups:
+    - title: "Features"
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: "Bug Fixes"
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: "Other"
+      order: 999
+
+release:
+  github:
+    owner: kjourdan1
+    name: lzctl
+  draft: false
+  prerelease: auto
+  name_template: "v{{ .Version }}"
+
+brews:
+  - repository:
+      owner: kjourdan1
+      name: homebrew-tap
+    name: lzctl
+    homepage: "https://github.com/kjourdan1/lzctl"
+    description: "CLI tool for Azure Landing Zone scaffolding and management"
+    license: "Apache-2.0"
+    install: |
+      bin.install "lzctl"
+    test: |
+      system "#{bin}/lzctl", "version"

@@ -1,0 +1,37 @@
+apiVersion: lzctl/v1
+kind: LandingZone
+metadata:
+  name: startup-lite
+  tenant: startup.onmicrosoft.com
+  primaryRegion: eastus
+spec:
+  platform:
+    managementGroups:
+      model: caf-lite
+    connectivity:
+      type: none
+    identity:
+      type: sp-secret
+    management:
+      logAnalytics:
+        retentionDays: 30
+      automationAccount: false
+      defenderForCloud:
+        enabled: false
+        plans: []
+  governance:
+    policies:
+      assignments:
+        - deploy-mdfc-config
+  naming:
+    convention: caf
+  stateBackend:
+    resourceGroup: rg-tfstate
+    storageAccount: ststartuptfstate
+    container: tfstate
+    subscription: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
+  cicd:
+    platform: azure-devops
+    branchPolicy:
+      mainBranch: main
+      requirePR: false

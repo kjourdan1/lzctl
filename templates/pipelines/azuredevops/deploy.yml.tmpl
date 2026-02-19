@@ -1,0 +1,23 @@
+trigger:
+  branches:
+    include:
+      - {{ .Config.Spec.CICD.BranchPolicy.MainBranch }}
+pr: none
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - checkout: self
+  - task: TerraformInstaller@1
+    inputs:
+      terraformVersion: 'latest'
+  - script: |
+      set -euo pipefail
+      for d in platform/management-groups platform/identity platform/management platform/governance platform/connectivity; do
+        if [ -d "$d" ]; then
+          terraform -chdir="$d" init -input=false
+          terraform -chdir="$d" apply -auto-approve -input=false
+        fi
+      done
+    displayName: Terraform apply

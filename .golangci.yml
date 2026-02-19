@@ -1,0 +1,62 @@
+# golangci-lint configuration for lzctl
+# https://golangci-lint.run/usage/configuration/
+
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - gosimple
+    - unused
+    - ineffassign
+    - misspell
+    - gofmt
+    - goimports
+    - revive
+    - gosec
+    - unconvert
+    - unparam
+    - prealloc
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: false
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment # too noisy
+  revive:
+    rules:
+      - name: blank-imports
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: exported
+      - name: increment-decrement
+      - name: var-naming
+      - name: package-comments
+        disabled: true
+  misspell:
+    locale: US
+  gosec:
+    excludes:
+      - G104 # unhandled errors — covered by errcheck
+      - G304 # file path from variable — expected in CLI tool
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+        - unparam
+    - path: cmd/
+      linters:
+        - unparam # cobra handlers have fixed signatures
+  max-issues-per-linter: 50
+  max-same-issues: 5

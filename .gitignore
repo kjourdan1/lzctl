@@ -1,0 +1,24 @@
+# Build output
+bin/
+dist/
+lzctl
+lzctl.exe
+
+# Go
+*.test
+coverage.out
+*.prof
+
+# lzctl local cache
+.lzctl-cache/
+*.tmp
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+Thumbs.db

@@ -1,0 +1,101 @@
+package cmd
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"strings"
+)
+
+var localLayerOrder = []string{
+	"management-groups",
+	"identity",
+	"management",
+	"governance",
+	"connectivity",
+}
+
+var terraformPlanSummaryRegex = regexp.MustCompile(`Plan:\s+(\d+) to add,\s+(\d+) to change,\s+(\d+) to destroy`)
+
+func localConfigPath() string {
+	if strings.TrimSpace(cfgFile) != "" {
+		return cfgFile
+	}
+	return filepath.Join(repoRoot, "lzctl.yaml")
+}
+
+func resolveLocalLayers(root, selected string) ([]string, error) {
+	if strings.TrimSpace(selected) != "" {
+		dir := filepath.Join(root, "platform", selected)
+		if !dirExists(dir) {
+			return nil, fmt.Errorf("layer directory not found: %s", dir)
+		}
+		return []string{selected}, nil
+	}
+
+	layers := make([]string, 0, len(localLayerOrder))
+	for _, layer := range localLayerOrder {
+		dir := filepath.Join(root, "platform", layer)
+		if dirExists(dir) {
+			layers = append(layers, layer)
+		}
+	}
+	if len(layers) == 0 {
+		return nil, fmt.Errorf("no platform layers found under %s", filepath.Join(root, "platform"))
+	}
+	return layers, nil
+}
+
+func dirExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
+}
+
+func fileExistsLocal(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
+func ensureTerraformInstalled() error {
+	if _, err := exec.LookPath("terraform"); err != nil {
+		return fmt.Errorf("terraform not found in PATH (install with: winget install Hashicorp.Terraform)")
+	}
+	return nil
+}
+
+func runTerraformCmd(ctx context.Context, dir string, args ...string) (string, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	cmd := exec.CommandContext(ctx, "terraform", args...)
+	cmd.Dir = dir
+	cmd.Env = append(cmd.Env, "TF_INPUT=false")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	err := cmd.Run()
+	return out.String(), err
+}
+
+func parsePlanSummary(output string) (int, int, int) {
+	matches := terraformPlanSummaryRegex.FindStringSubmatch(output)
+	if len(matches) != 4 {
+		return 0, 0, 0
+	}
+	add := parseInt(matches[1])
+	change := parseInt(matches[2])
+	destroy := parseInt(matches[3])
+	return add, change, destroy
+}
+
+func parseInt(v string) int {
+	var n int
+	for _, c := range v {
+		n = n*10 + int(c-'0')
+	}
+	return n
+}

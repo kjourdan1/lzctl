@@ -1,0 +1,113 @@
+apiVersion: lzctl/v1
+kind: LandingZone
+metadata:
+  name: contoso-enterprise-alz
+  tenant: contoso.onmicrosoft.com
+  primaryRegion: westeurope
+  secondaryRegion: northeurope
+
+spec:
+  platform:
+    managementGroups:
+      model: caf-standard
+    connectivity:
+      type: hub-spoke
+      hub:
+        region: westeurope
+        addressSpace: "10.0.0.0/16"
+        firewall:
+          enabled: true
+          sku: Premium
+          threatIntel: Deny
+        dns:
+          privateResolver: true
+          forwarders:
+            - "10.0.0.4"
+            - "10.0.0.5"
+        vpnGateway:
+          enabled: true
+          sku: VpnGw2
+        expressRouteGateway:
+          enabled: false
+    identity:
+      type: workload-identity-federation
+    management:
+      logAnalytics:
+        retentionDays: 365
+        solutions:
+          - SecurityInsights
+          - VMInsights
+          - ChangeTracking
+      automationAccount: true
+      defenderForCloud:
+        enabled: true
+        plans:
+          - VirtualMachines
+          - SqlServers
+          - AppServices
+          - StorageAccounts
+          - KeyVaults
+          - Dns
+          - Arm
+          - Containers
+
+  governance:
+    policies:
+      assignments:
+        - enforce-tagging
+        - allowed-locations
+        - enforce-nsg-on-subnet
+        - deny-public-ip
+        - audit-vm-managed-disks
+        - deploy-diag-settings
+      custom:
+        - require-cost-center-tag
+        - restrict-vm-sku
+
+  naming:
+    convention: caf
+    overrides:
+      resourceGroup: "rg-{name}-{env}-{region}"
+
+  stateBackend:
+    resourceGroup: rg-terraform-state
+    storageAccount: stcontosotfstate001
+    container: lzctl
+    subscription: "00000000-1111-2222-3333-444444444444"
+
+  landingZones:
+    - name: app-team-alpha
+      subscription: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+      archetype: corp
+      addressSpace: "10.1.0.0/24"
+      connected: true
+      tags:
+        environment: production
+        costCenter: CC-1234
+        owner: team-alpha@contoso.com
+
+    - name: app-team-beta
+      subscription: "ffffffff-1111-2222-3333-444444444444"
+      archetype: corp
+      addressSpace: "10.1.1.0/24"
+      connected: true
+      tags:
+        environment: staging
+        costCenter: CC-5678
+        owner: team-beta@contoso.com
+
+    - name: sandbox-dev
+      subscription: "55555555-6666-7777-8888-999999999999"
+      archetype: sandbox
+      addressSpace: "10.200.0.0/24"
+      connected: false
+      tags:
+        environment: sandbox
+        costCenter: CC-0000
+
+  cicd:
+    platform: github-actions
+    repository: contoso/landing-zones
+    branchPolicy:
+      mainBranch: main
+      requirePR: true

@@ -1,0 +1,44 @@
+name: Deploy
+
+on:
+  push:
+    branches: ["{{ .Config.Spec.CICD.BranchPolicy.MainBranch }}"]
+
+jobs:
+  terraform-apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+
+      # ── State Life Management: snapshot before apply ──────────────
+      # Creates a point-in-time backup of all state files before mutation.
+      # Azure blob versioning preserves state history for rollback.
+      - name: Snapshot state before apply
+        run: |
+          set -euo pipefail
+          echo "Creating pre-apply state snapshots..."
+          for key in $(az storage blob list \
+            --account-name "{{ .Config.Spec.StateBackend.StorageAccount }}" \
+            --container "{{ .Config.Spec.StateBackend.Container }}" \
+            --auth-mode login \
+            --query "[?ends_with(name,'.tfstate')].name" -o tsv); do
+            az storage blob snapshot \
+              --account-name "{{ .Config.Spec.StateBackend.StorageAccount }}" \
+              --container "{{ .Config.Spec.StateBackend.Container }}" \
+              --name "$key" \
+              --auth-mode login \
+              --output none && echo "  ✓ snapshot: $key"
+          done
+
+      # ── Apply layers in dependency order ─────────────────────────
+      - name: Apply platform layers
+        run: |
+          set -euo pipefail
+          for d in platform/management-groups platform/identity platform/management platform/governance platform/connectivity; do
+            if [ -d "$d" ]; then
+              echo "═══ Applying: $d ═══"
+              terraform -chdir="$d" init -input=false -backend-config=../../backend.hcl
+              terraform -chdir="$d" apply -auto-approve -input=false
+            fi
+          done

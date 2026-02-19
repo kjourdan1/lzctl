@@ -1,0 +1,70 @@
+<mxfile host="app.diagrams.net" modified="2024-01-15" agent="lzctl-docs" version="22.1.0">
+  <diagram id="L0-context" name="L0 - System Context">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- Title -->
+        <mxCell id="title" value="L0 - System Context: lzctl Landing Zone Factory" style="text;html=1;fontSize=18;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="200" y="20" width="700" height="40" as="geometry"/>
+        </mxCell>
+
+        <!-- Platform Engineer (Person) -->
+        <mxCell id="person-pe" value="&lt;b&gt;Platform Engineer&lt;/b&gt;&lt;br&gt;Deploys and manages&lt;br&gt;Azure Landing Zones" style="shape=mxgraph.c4.person2;whiteSpace=wrap;html=1;fontSize=11;fillColor=#08427B;fontColor=#ffffff;strokeColor=#073B6E;" vertex="1" parent="1">
+          <mxGeometry x="460" y="80" width="180" height="120" as="geometry"/>
+        </mxCell>
+
+        <!-- lzctl (System) -->
+        <mxCell id="system-lzctl" value="&lt;b&gt;lzctl&lt;/b&gt;&lt;br&gt;[CLI + GitOps Framework]&lt;br&gt;&lt;br&gt;Stateless CLI that orchestrates&lt;br&gt;scaffold, plan, apply, validate,&lt;br&gt;drift, docs, and policy lifecycle&lt;br&gt;for Azure Landing Zones" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fillColor=#438DD5;fontColor=#ffffff;strokeColor=#3C7FC0;arcSize=5;" vertex="1" parent="1">
+          <mxGeometry x="380" y="260" width="340" height="130" as="geometry"/>
+        </mxCell>
+
+        <!-- Git Repository -->
+        <mxCell id="ext-git" value="&lt;b&gt;Git Repository&lt;/b&gt;&lt;br&gt;[Azure DevOps / GitHub]&lt;br&gt;&lt;br&gt;Source of truth for&lt;br&gt;YAML manifests and IaC" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fillColor=#999999;fontColor=#ffffff;strokeColor=#8C8C8C;arcSize=5;" vertex="1" parent="1">
+          <mxGeometry x="40" y="260" width="220" height="110" as="geometry"/>
+        </mxCell>
+
+        <!-- Azure (External) -->
+        <mxCell id="ext-azure" value="&lt;b&gt;Microsoft Azure&lt;/b&gt;&lt;br&gt;[Cloud Platform]&lt;br&gt;&lt;br&gt;Target environment:&lt;br&gt;Management Groups, Policies,&lt;br&gt;VNets, RBAC, Subscriptions" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fillColor=#999999;fontColor=#ffffff;strokeColor=#8C8C8C;arcSize=5;" vertex="1" parent="1">
+          <mxGeometry x="840" y="260" width="220" height="120" as="geometry"/>
+        </mxCell>
+
+        <!-- CI/CD Pipeline -->
+        <mxCell id="ext-cicd" value="&lt;b&gt;CI/CD Pipeline&lt;/b&gt;&lt;br&gt;[ADO Pipelines / GH Actions]&lt;br&gt;&lt;br&gt;Runs lzctl commands&lt;br&gt;on PR and merge events" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fillColor=#999999;fontColor=#ffffff;strokeColor=#8C8C8C;arcSize=5;" vertex="1" parent="1">
+          <mxGeometry x="420" y="480" width="260" height="100" as="geometry"/>
+        </mxCell>
+
+        <!-- Terraform/Terragrunt -->
+        <mxCell id="ext-tf" value="&lt;b&gt;Terraform / Terragrunt&lt;/b&gt;&lt;br&gt;[IaC Engine]&lt;br&gt;&lt;br&gt;Executes plan &amp; apply&lt;br&gt;against Azure" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fillColor=#999999;fontColor=#ffffff;strokeColor=#8C8C8C;arcSize=5;" vertex="1" parent="1">
+          <mxGeometry x="40" y="460" width="220" height="100" as="geometry"/>
+        </mxCell>
+
+        <!-- Edges -->
+        <mxCell id="e1" value="runs CLI commands" style="endArrow=block;endFill=1;fontSize=10;" edge="1" parent="1" source="person-pe" target="system-lzctl">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e2" value="reads/writes manifests" style="endArrow=block;endFill=1;fontSize=10;" edge="1" parent="1" source="system-lzctl" target="ext-git">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e3" value="discovers resources,&lt;br&gt;deploys infrastructure" style="endArrow=block;endFill=1;fontSize=10;" edge="1" parent="1" source="system-lzctl" target="ext-azure">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e4" value="orchestrates" style="endArrow=block;endFill=1;fontSize=10;" edge="1" parent="1" source="ext-cicd" target="system-lzctl">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e5" value="invokes plan/apply" style="endArrow=block;endFill=1;fontSize=10;" edge="1" parent="1" source="system-lzctl" target="ext-tf">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e6" value="provisions resources" style="endArrow=block;endFill=1;fontSize=10;" edge="1" parent="1" source="ext-tf" target="ext-azure">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend" value="&lt;b&gt;Legend&lt;/b&gt;&lt;br&gt;Blue = lzctl system&lt;br&gt;Gray = External systems" style="text;html=1;fontSize=10;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="40" y="600" width="200" height="60" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

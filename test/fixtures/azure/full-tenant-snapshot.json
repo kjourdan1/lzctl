@@ -1,0 +1,65 @@
+{
+  "tenantId": "a1b2c3d4-e5f6-1234-5678-abcdef012345",
+  "managementGroups": [
+    { "id": "/providers/Microsoft.Management/managementGroups/mg-root", "name": "mg-root", "displayName": "Root", "parentId": "" },
+    { "id": "/providers/Microsoft.Management/managementGroups/mg-platform", "name": "mg-platform", "displayName": "Platform", "parentId": "/providers/Microsoft.Management/managementGroups/mg-root" }
+  ],
+  "subscriptions": [
+    { "id": "sub-001", "displayName": "Production", "state": "Enabled", "managementGroup": "mg-platform" },
+    { "id": "sub-002", "displayName": "Development", "state": "Enabled", "managementGroup": "mg-root" }
+  ],
+  "policyAssignments": [],
+  "roleAssignments": [
+    {
+      "id": "/providers/Microsoft.Authorization/roleAssignments/ra-001",
+      "principalId": "user-001",
+      "principalType": "User",
+      "roleDefinitionName": "Owner",
+      "scope": "/",
+      "hasFederatedIdentity": false
+    }
+  ],
+  "virtualNetworks": [
+    {
+      "id": "/subscriptions/sub-001/resourceGroups/rg-connectivity/providers/Microsoft.Network/virtualNetworks/vnet-hub",
+      "name": "vnet-hub",
+      "subscriptionId": "sub-001",
+      "addressSpaces": ["10.0.0.0/16"]
+    }
+  ],
+  "peerings": [],
+  "diagnosticSettings": [],
+  "defenderPlans": [
+    { "subscriptionId": "sub-001", "name": "VirtualMachines", "pricingTier": "Standard" }
+  ],
+  "resources": [
+    {
+      "id": "/subscriptions/sub-001/resourceGroups/rg-connectivity/providers/Microsoft.Network/virtualNetworks/vnet-hub",
+      "type": "Microsoft.Network/virtualNetworks",
+      "name": "vnet-hub",
+      "subscriptionId": "sub-001",
+      "resourceGroup": "rg-connectivity"
+    },
+    {
+      "id": "/subscriptions/sub-001/resourceGroups/rg-connectivity/providers/Microsoft.Network/networkSecurityGroups/nsg-default",
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "name": "nsg-default",
+      "subscriptionId": "sub-001",
+      "resourceGroup": "rg-connectivity"
+    },
+    {
+      "id": "/subscriptions/sub-001/resourceGroups/rg-app/providers/Microsoft.Storage/storageAccounts/stapp001",
+      "type": "Microsoft.Storage/storageAccounts",
+      "name": "stapp001",
+      "subscriptionId": "sub-001",
+      "resourceGroup": "rg-app"
+    },
+    {
+      "id": "/subscriptions/sub-001/resourceGroups/rg-app/providers/Microsoft.Compute/virtualMachines/vm-legacy",
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "vm-legacy",
+      "subscriptionId": "sub-001",
+      "resourceGroup": "rg-app"
+    }
+  ]
+}

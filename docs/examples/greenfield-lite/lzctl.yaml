@@ -1,0 +1,52 @@
+apiVersion: lzctl/v1
+kind: LandingZone
+metadata:
+  name: sandbox-minimal
+  tenant: mycompany.onmicrosoft.com
+  primaryRegion: francecentral
+
+spec:
+  platform:
+    managementGroups:
+      model: caf-lite
+    connectivity:
+      type: none
+    identity:
+      type: sp-secret
+    management:
+      logAnalytics:
+        retentionDays: 30
+      defenderForCloud:
+        enabled: false
+
+  governance:
+    policies:
+      assignments:
+        - enforce-tagging
+        - allowed-locations
+
+  naming:
+    convention: caf
+
+  stateBackend:
+    resourceGroup: rg-tfstate
+    storageAccount: sttfstatemyco001
+    container: lzctl
+    subscription: "00000000-aaaa-bbbb-cccc-dddddddddddd"
+
+  landingZones:
+    - name: poc-workload
+      subscription: "11111111-2222-3333-4444-555555555555"
+      archetype: sandbox
+      addressSpace: "10.100.0.0/24"
+      connected: false
+      tags:
+        environment: sandbox
+        purpose: proof-of-concept
+
+  cicd:
+    platform: azure-devops
+    repository: mycompany/landing-zones
+    branchPolicy:
+      mainBranch: main
+      requirePR: false

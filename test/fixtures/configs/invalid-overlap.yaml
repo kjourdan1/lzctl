@@ -1,0 +1,37 @@
+# Invalid config: missing tenant in metadata, invalid connectivity type
+apiVersion: lzctl/v1
+kind: LandingZone
+metadata:
+  name: bad-config
+  primaryRegion: westeurope
+  # Missing required: tenant
+spec:
+  platform:
+    managementGroups:
+      model: invalid-model
+    connectivity:
+      type: mesh  # invalid enum value
+    identity:
+      type: workload-identity-federation
+    management:
+      logAnalytics:
+        retentionDays: 5  # below minimum of 30
+      defenderForCloud:
+        enabled: true
+        plans:
+          - VirtualMachines
+  governance:
+    policies:
+      assignments: []  # minItems is 1
+  naming:
+    convention: caf
+  stateBackend:
+    resourceGroup: rg-state
+    storageAccount: ststate
+    container: tfstate
+    subscription: sub-id
+  cicd:
+    platform: gitlab  # invalid enum
+    branchPolicy:
+      mainBranch: main
+      requirePR: true

@@ -1,0 +1,54 @@
+trigger: none
+pr: none
+schedules:
+  - cron: "0 2 * * 0"
+    displayName: Weekly drift detection
+    branches:
+      include:
+        - {{ .Config.Spec.CICD.BranchPolicy.MainBranch }}
+    always: true
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  DRIFT_DETECTED: 'false'
+
+steps:
+  - checkout: self
+  - task: TerraformInstaller@1
+    inputs:
+      terraformVersion: 'latest'
+  - script: |
+      set -euo pipefail
+      DRIFT=0
+      for d in platform/management-groups platform/identity platform/management platform/governance platform/connectivity{{ range .Config.Spec.LandingZones }} landing-zones/{{ .Name | slugify }}{{ end }}; do
+        if [ -d "$d" ]; then
+          terraform -chdir="$d" init -input=false
+          terraform -chdir="$d" plan -detailed-exitcode -input=false 2>&1 || code=$?
+          if [ "${code:-0}" -eq 2 ]; then
+            echo "##vso[task.logissue type=warning]Drift detected in $d"
+            DRIFT=1
+          elif [ "${code:-0}" -eq 1 ]; then
+            echo "##vso[task.logissue type=error]Terraform error in $d"
+            exit 1
+          fi
+        fi
+      done
+      echo "##vso[task.setvariable variable=DRIFT_DETECTED]$DRIFT"
+    displayName: Terraform drift detection
+
+  - script: |
+      if [ "$(DRIFT_DETECTED)" = "1" ]; then
+        az boards work-item create \
+          --title "Infrastructure drift detected ($(date +%Y-%m-%d))" \
+          --type "Bug" \
+          --description "Automated drift detection found configuration differences. Run lzctl drift --tenant {{ .Config.Metadata.Tenant }} locally for details." \
+          --assigned-to "$(Build.RequestedForEmail)" \
+          --area "$(System.TeamProject)" \
+          || echo "##vso[task.logissue type=warning]Could not create work item"
+      fi
+    displayName: Create drift work item
+    condition: eq(variables['DRIFT_DETECTED'], '1')
+    env:
+      AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)

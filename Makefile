@@ -19,7 +19,7 @@ BIN_DIR      := bin
 PLATFORMS    := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
 COVERAGE_MIN ?= 45
 
-.PHONY: all build clean test lint fmt vet tidy install cross-compile help test-coverage-check
+.PHONY: all build clean test lint fmt vet tidy install cross-compile help test-coverage test-coverage-check
 
 # ── Default ──────────────────────────────────────────────────
 

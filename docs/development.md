@@ -1,63 +1,51 @@
 # Development Guide
 
-Guide technique pour les contributeurs et mainteneurs.
+Technical guide for contributors and maintainers.
 
-## Architecture du code
+## Code Architecture
 
 ```
-cmd/                    Commandes Cobra CLI
-internal/               Logique métier
-  applier/              Orchestration terraform apply
-  assess/               Évaluation de la maturité
-  audit/                Audit de conformité CAF
-  azauth/               Authentification Azure
-  azure/                Wrapper az CLI
-  bootstrap/            Bootstrap du state backend
-  config/               Parsing, validation, cross-checks de lzctl.yaml
-  doctor/               Vérification des prérequis
-  drift/                Détection de drift
-  exitcode/             Codes de sortie standardisés
-  importer/             Génération de blocs import Terraform
-  manifest/             Lecture/écriture du manifeste
-  output/               Formatage de sortie (Info, Success, Warning, Error)
-  planner/              Orchestration terraform plan
-  planverify/           Vérification des plans
+cmd/                    Cobra CLI commands
+internal/               Business logic
+  audit/                CAF compliance audit
+  azauth/               Azure authentication
+  azure/                az CLI wrapper
+  bootstrap/            State backend bootstrap
+  config/               Parsing, validation, cross-checks for lzctl.yaml
+  doctor/               Prerequisite checks
+  exitcode/             Standardised exit codes
+  importer/             Terraform import block generation
+  oidcsetup/            OIDC federated credential setup
+  output/               Output formatting (Info, Success, Warning, Error)
+  planverify/           Plan verification
   policy/               Policy-as-Code lifecycle
-  profiles/             Catalogue de profils CAF
-  rollback/             Rollback multi-couche
-  scaffold/             Génération de structure projet
-  schema/               Validation JSON Schema
-  state/                Gestion du lifecycle des state files
-  template/             Moteur de templates Go
-  tfutil/               Utilitaires Terraform
-  upgrade/              Vérification et mise à jour des modules AVM
-  validate/             Orchestration des validations
-  wizard/               Wizard interactif (survey)
-  workload/             Gestion des landing zones
-schemas/                Schéma JSON embarqué (embed.FS)
-templates/              Templates Go (embed.FS)
-  manifest/             Templates lzctl.yaml
-  shared/               Templates partagés (backend, providers, gitignore)
-  platform/             Templates Terraform par couche
-  pipelines/            Templates CI/CD (GitHub Actions, Azure DevOps)
-profiles/               Catalogue de profils CAF (catalog.yaml)
-policies/               Artefacts Policy-as-Code
+  state/                State file lifecycle management
+  template/             Go template engine
+  upgrade/              AVM module version checker and updater
+  wizard/               Interactive wizard (survey)
+schemas/                Embedded JSON schema (embed.FS)
+templates/              Go templates (embed.FS)
+  manifest/             lzctl.yaml templates
+  shared/               Shared templates (backend, providers, gitignore)
+  platform/             Terraform templates per layer
+  pipelines/            CI/CD templates (GitHub Actions, Azure DevOps)
+profiles/               CAF profile catalogue (catalog.yaml)
 ```
 
 ## Conventions
 
-### Commandes (cmd/)
+### Commands (cmd/)
 
-Les fichiers dans `cmd/` sont des **wrappers fins** :
-1. Parser les flags
-2. Charger la configuration
-3. Appeler la logique dans `internal/`
-4. Formater et afficher le résultat
+Files in `cmd/` are **thin wrappers**:
+1. Parse flags
+2. Load configuration
+3. Call logic in `internal/`
+4. Format and display the result
 
 ```go
 var myCmd = &cobra.Command{
     Use:   "mycommand",
-    Short: "Description courte",
+    Short: "Short description",
     RunE: func(cmd *cobra.Command, args []string) error {
         cfg, err := config.Load(cfgFile, repoRoot)
         if err != nil {
@@ -68,15 +56,15 @@ var myCmd = &cobra.Command{
 }
 ```
 
-### Packages internes
+### Internal Packages
 
-- Pas de dépendance sur Cobra
-- Interfaces pour la testabilité
-- Erreurs wrappées : `fmt.Errorf("context: %w", err)`
+- No dependency on Cobra
+- Interfaces for testability
+- Wrapped errors: `fmt.Errorf("context: %w", err)`
 
 ### Output
 
-Utiliser `internal/output` pour les messages :
+Use `internal/output` for messages:
 
 ```go
 output.Info("Processing layer: %s", layer)
@@ -87,7 +75,7 @@ output.Error("Failed to apply: %v", err)
 
 ### Templates
 
-Les templates Go sont dans `templates/` et embarqués via `embed.FS` :
+Go templates live in `templates/` and are embedded via `embed.FS`:
 
 ```
 templates/
@@ -119,50 +107,47 @@ lzctl plan -vvv
 lzctl apply --dry-run
 ```
 
-## Tests d'intégration Azure (live)
+## Azure Integration Tests (live)
 
-Les tests Azure live sont séparés des tests PR standards :
+Azure live tests are separate from standard PR tests:
 
-- PR/CI standard : `go test ./...` (aucun appel Azure réel)
-- Live (nightly ou manuel) : `go test -tags=integration -v ./test/integration/...`
+- Standard PR/CI: `go test ./...` (no real Azure calls)
+- Live (nightly or manual): `go test -tags=integration -v ./test/integration/...`
 
-Le workflow GitHub Actions dédié est `integration-azure.yml` et s'exécute en
-`workflow_dispatch` ou en planification hebdomadaire.
-
-Variables requises pour les tests live :
+Required variables for live tests:
 
 - `AZURE_TENANT_ID`
 - `AZURE_CLIENT_ID`
 - `AZURE_SUBSCRIPTION_ID`
 
-## Ajouter une nouvelle commande
+## Adding a New Command
 
-1. Créer `cmd/<command>.go` avec une commande Cobra
-2. Créer `internal/<package>/<package>.go` avec la logique
-3. Wire dans `cmd/root.go` : `rootCmd.AddCommand(myCmd)`
-4. Ajouter tests dans `cmd/cmd_test.go` et `internal/<package>/<package>_test.go`
-5. Documenter dans `docs/commands/<command>.md`
-6. Mettre à jour `docs/cli-reference.md`
+1. Create `cmd/<command>.go` with a Cobra command
+2. Create `internal/<package>/<package>.go` with the logic
+3. Wire in `cmd/root.go`: `rootCmd.AddCommand(myCmd)`
+4. Add tests in `cmd/cmd_test.go` and `internal/<package>/<package>_test.go`
+5. Document in `docs/commands/<command>.md`
+6. Update `docs/cli-reference.md`
 
-## Ajouter une règle d'audit
+## Adding an Audit Rule
 
-1. Créer la fonction dans `internal/audit/compliance_engine.go`
-2. Suivre le pattern existant `check<Rule>()`
-3. Tester avec des fixtures dans `audit_test.go`
-4. Documenter la règle et la remédiation
+1. Create the function in `internal/audit/compliance_engine.go`
+2. Follow the existing `check<Rule>()` pattern
+3. Test with fixtures in `audit_test.go`
+4. Document the rule and its remediation
 
-## Ajouter un check doctor
+## Adding a Doctor Check
 
-1. Ajouter dans `internal/doctor/checks.go`
-2. Catégoriser : `tools`, `auth`, `azure`, `state`
-3. Retourner un `CheckResult` avec Name, Status, Details, Fix
-4. Tester dans `checks_test.go`
+1. Add in `internal/doctor/checks.go`
+2. Categorise: `tools`, `auth`, `azure`, `state`
+3. Return a `CheckResult` with Name, Status, Details, Fix
+4. Test in `checks_test.go`
 
-## Ajouter un champ à lzctl.yaml
+## Adding a Field to lzctl.yaml
 
-1. Ajouter le champ dans `internal/config/schema.go`
-2. Ajouter la valeur par défaut dans `internal/config/defaults.go`
-3. Mettre à jour `schemas/lzctl-v1.schema.json`
-4. Ajouter la validation cross-field si nécessaire dans `internal/config/crossvalidator.go`
-5. Mettre à jour le template dans `templates/manifest/lzctl.yaml.tmpl`
-6. Documenter dans le README
+1. Add the field in `internal/config/schema.go`
+2. Add the default value in `internal/config/defaults.go`
+3. Update `schemas/lzctl-v1.schema.json`
+4. Add cross-field validation if needed in `internal/config/crossvalidator.go`
+5. Update the template in `templates/manifest/lzctl.yaml.tmpl`
+6. Document in the README

@@ -567,4 +567,4 @@ The MVP (Phase 1 + Phase 2) is considered complete when:
 
 ---
 
-*Ce PRD fournit les exigences nécessaires à la conception de l'architecture technique, des modèles de données et du plan d'implémentation.*
+*This PRD provides the requirements for the technical architecture design, data models, and implementation plan.*

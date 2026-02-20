@@ -29,7 +29,7 @@
 
 | Component | Choice | Version | Justification |
 |-----------|--------|---------|---------------|
-| **Language** | Go | 1.22+ | Single binary, cross-platform, Cobra ecosystem, standard in infra tooling (kubectl, terraform, gh) |
+| **Language** | Go | 1.24+ | Single binary, cross-platform, Cobra ecosystem, standard in infra tooling (kubectl, terraform, gh) |
 | **CLI Framework** | [cobra](https://github.com/spf13/cobra) | v1.8+ | Industry standard for Go CLIs; built-in help, completions, subcommands |
 | **Config Parsing** | [viper](https://github.com/spf13/viper) | v1.18+ | YAML/JSON/TOML config, env var binding, pairs naturally with Cobra |
 | **Interactive Prompts** | [survey/v2](https://github.com/go-survey/survey) or [huh](https://github.com/charmbracelet/huh) | latest | Charmbracelet `huh` preferred for modern TUI; fallback to survey for simplicity |

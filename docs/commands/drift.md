@@ -1,6 +1,6 @@
 # lzctl drift
 
-Détecte le drift d'infrastructure entre l'état Terraform et les ressources Azure.
+Detect infrastructure drift between the Terraform state and Azure resources.
 
 ## Synopsis
 
@@ -10,21 +10,21 @@ lzctl drift [flags]
 
 ## Description
 
-Exécute `terraform plan -detailed-exitcode` sur chaque couche plateforme et analyse les changements détectés :
-- **Ajout** — ressource créée en dehors de Terraform
-- **Modification** — ressource modifiée manuellement
-- **Suppression** — ressource supprimée manuellement
+Runs `terraform plan -detailed-exitcode` on each platform layer and analyses detected changes:
+- **Addition** — resource created outside Terraform
+- **Modification** — resource modified manually
+- **Deletion** — resource deleted manually
 
-Le scan s'effectue couche par couche dans l'ordre CAF :
+The scan runs layer by layer in CAF order:
 `management-groups` → `identity` → `management` → `governance` → `connectivity`
 
 ## Flags
 
-| Flag | Défaut | Description |
-|------|--------|-------------|
-| `--layer` | toutes | Couche spécifique à vérifier |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--layer` | all | Specific layer to check |
 
-## Sortie
+## Output
 
 ```
 ═══ Drift scan ═══
@@ -38,31 +38,31 @@ Le scan s'effectue couche par couche dans l'ordre CAF :
 Summary: 2 layers with drift (3 total changes)
 ```
 
-## Exit codes
+## Exit Codes
 
-| Code | Signification |
-|------|---------------|
-| 0 | Aucun drift |
-| 2 | Drift détecté |
+| Code | Meaning |
+|------|---------|
+| 0 | No drift |
+| 2 | Drift detected |
 
-## Intégration CI/CD
+## CI/CD Integration
 
-Les pipelines générés incluent un workflow de drift detection planifié (hebdomadaire). Quand du drift est détecté, une issue GitHub ou un work item Azure DevOps est automatiquement créé.
+Generated pipelines include a scheduled drift detection workflow (weekly). When drift is detected, a GitHub issue or Azure DevOps work item is automatically created.
 
-## Exemples
+## Examples
 
 ```bash
-# Scan toutes les couches
+# Scan all layers
 lzctl drift
 
-# Scan une seule couche
+# Scan a single layer
 lzctl drift --layer connectivity
 
-# Sortie JSON
+# JSON output
 lzctl drift --json
 ```
 
-## Voir aussi
+## See Also
 
-- [plan](plan.md) — voir les changements planifiés
-- [Drift Response](../operations/drift-response.md) — procédure de réponse au drift
+- [plan](plan.md) — see planned changes
+- [Drift Response](../operations/drift-response.md) — drift response procedure

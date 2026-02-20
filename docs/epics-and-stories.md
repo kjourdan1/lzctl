@@ -1418,365 +1418,365 @@ E5-S1 through E5-S6 (parallel, most depend only on working CLI)
 
 ## Epic 6 — Quality & Reliability Hardening
 
-> **Goal:** Stabiliser le pipeline CI/CD, fiabiliser GoReleaser, augmenter la couverture de tests sur les commandes métier et imposer des seuils de qualité.
-> **Phase:** Transverse (peut être traité en parallèle de tout autre Epic)
+> **Goal:** Stabilize the CI/CD pipeline, make GoReleaser reliable, increase test coverage on business commands, and enforce quality thresholds.
+> **Phase:** Cross-cutting (can be handled in parallel with any other Epic)
 > **Total points:** 38
 
 ---
 
-### E6-S1 : Épingler golangci-lint et corriger le workflow CI
+### E6-S1: Pin golangci-lint and Fix CI Workflow
 
 **Points:** 2
 **Dependencies:** → E1-S1
 **Priority:** Must
 
 **Description:**
-Le workflow CI utilise `version: latest` pour `golangci-lint-action`, ce qui casse silencieusement à chaque nouvelle release de linter (nouvelles règles non anticipées). Il faut épingler la version et ajouter un fichier de configuration partagée.
+The CI workflow uses `version: latest` for `golangci-lint-action`, which silently breaks with each new linter release (unanticipated new rules). The version must be pinned and a shared configuration file added.
 
-**Fichiers à créer/modifier :**
+**Files to create/modify:**
 ```
-.github/workflows/ci.yml        (épingler golangci-lint à v1.64.x)
-.golangci.yml                   (créer — règles communes, timeouts)
+.github/workflows/ci.yml        (pin golangci-lint to v1.64.x)
+.golangci.yml                   (create — shared rules, timeouts)
 ```
 
-**Critères d'acceptation :**
-- [ ] `golangci-lint-action` épinglee à `v6` avec `version: v1.64.x` (semver majeur stable)
-- [ ] `.golangci.yml` actif avec au minimum : `gofmt`, `govet`, `errcheck`, `staticcheck`, `unused`, `exhaustive`
-- [ ] Timeout lint global : 5 minutes
-- [ ] `make lint` local donne le même résultat que CI
-- [ ] PR avec violation lint rejeted (exit code != 0)
-- [ ] Aucune fausse positive sur le code actuel (`go vet ./...` + lint passent)
+**Acceptance Criteria:**
+- [ ] `golangci-lint-action` pinned to `v6` with `version: v1.64.x` (stable semver major)
+- [ ] `.golangci.yml` active with at minimum: `gofmt`, `govet`, `errcheck`, `staticcheck`, `unused`, `exhaustive`
+- [ ] Global lint timeout: 5 minutes
+- [ ] `make lint` locally gives the same result as CI
+- [ ] PR with lint violation rejected (exit code != 0)
+- [ ] No false positives on current code (`go vet ./...` + lint pass)
 
-**Notes d'implémentation :**
-- `golangci/golangci-lint-action@v6` + `version: v1.64.5` (ou la dernière patch)
-- `.golangci.yml` : `linters-settings.govet.enable-all: false` pour ne pas sur-activer
+**Implementation Notes:**
+- `golangci/golangci-lint-action@v6` + `version: v1.64.5` (or latest patch)
+- `.golangci.yml`: `linters-settings.govet.enable-all: false` to avoid over-enabling
 
 ---
 
-### E6-S2 : Valider `.goreleaser.yml` en CI (goreleaser check)
+### E6-S2: Validate `.goreleaser.yml` in CI (goreleaser check)
 
 **Points:** 2
 **Dependencies:** → E1-S1
 **Priority:** Must
 
 **Description:**
-Le fichier `.goreleaser.yml` n'est jamais validé avant le push d'un tag. Un erreur de syntaxe bloque le release job. Ajouter une étape `goreleaser check` dans le CI pour valider la config à chaque PR.
+The `.goreleaser.yml` file is never validated before pushing a tag. A syntax error blocks the release job. Add a `goreleaser check` step in CI to validate the config on every PR.
 
-**Fichiers à modifier :**
+**Files to modify:**
 ```
-.github/workflows/ci.yml        (ajouter job goreleaser-check)
-.goreleaser.yml                 (corriger {{ .ModulePath }} → hardcoded)
+.github/workflows/ci.yml        (add goreleaser-check job)
+.goreleaser.yml                 (fix {{ .ModulePath }} → hardcoded)
 ```
 
-**Critères d'acceptation :**
-- [ ] Nouveau job `goreleaser-check` dans `ci.yml`, déclenché sur PR + push main
-- [ ] Le job exécute `goreleaser check --clean` (lint config sans build)
-- [ ] `.goreleaser.yml` : `{{ .ModulePath }}` remplacé par `github.com/kjourdan1/lzctl` hardcodé (la variable n'existe pas en v2)
-- [ ] Le job passe sur le code actuel
-- [ ] En cas d'erreur `.goreleaser.yml`, le CI échoue visiblement avant le tag
+**Acceptance Criteria:**
+- [ ] New `goreleaser-check` job in `ci.yml`, triggered on PR + push main
+- [ ] The job runs `goreleaser check --clean` (lint config without building)
+- [ ] `.goreleaser.yml`: `{{ .ModulePath }}` replaced with hardcoded `github.com/kjourdan1/lzctl` (the variable doesn't exist in v2)
+- [ ] The job passes on current code
+- [ ] On `.goreleaser.yml` error, CI fails visibly before tagging
 
-**Notes d'implémentation :**
+**Implementation Notes:**
 - `goreleaser/goreleaser-action@v6` + `args: check --clean`
-- Ne nécessite pas `GITHUB_TOKEN`
+- Does not require `GITHUB_TOKEN`
 
 ---
 
-### E6-S3 : Couverture de tests — commandes `plan`, `apply`, `validate`
+### E6-S3: Test Coverage — `plan`, `apply`, `validate` Commands
 
 **Points:** 8
 **Dependencies:** → E1-S14, E1-S15
 **Priority:** Must
 
 **Description:**
-Les commandes `plan`, `apply` et `validate` n'ont que des tests `--help`. Dans l'architecture de lzctl, **les pipelines générés appellent Terraform directement** — lzctl n'est pas le runtime d'exécution Terraform. Les tests doivent donc valider ce que lzctl *produit* (le repo Terraform généré, les pipelines, le routage des backends) plutôt que de mocker l'exécution Terraform elle-même.
+The `plan`, `apply`, and `validate` commands only have `--help` tests. In lzctl's architecture, **the generated pipelines call Terraform directly** — lzctl is not the Terraform execution runtime. Tests must therefore validate what lzctl *produces* (the generated Terraform repo, pipelines, backend routing) rather than mocking Terraform execution itself.
 
-**Fichiers à créer :**
+**Files to create:**
 ```
 cmd/plan_test.go
 cmd/apply_test.go
 cmd/validate_test.go
-internal/planverify/planverify_test.go   (si pas déjà couvert)
+internal/planverify/planverify_test.go   (if not already covered)
 ```
 
-**Critères d'acceptation :**
+**Acceptance Criteria:**
 
-*`validate` — vérification de la config et du repo généré :*
-- [ ] `lzctl validate` sur un repo valide → exit 0, affiche "Validation passed"
-- [ ] `lzctl validate` sans `lzctl.yaml` → exit 1, message d'erreur lisible
-- [ ] `lzctl validate --json` → sortie JSON `{valid: true, errors: []}`
-- [ ] `lzctl validate` avec config invalide (champ requis manquant) → exit 1, liste les erreurs
-- [ ] `lzctl validate` vérifie que chaque layer déclarée dans `lzctl.yaml` a son répertoire `platform/<layer>/` avec au minimum `main.tf` et `backend.hcl`
-- [ ] `lzctl validate` vérifie que les clés de backend (`key = "<layer>.tfstate"`) sont uniques par layer
+*`validate` — config and generated repo verification:*
+- [ ] `lzctl validate` on a valid repo → exit 0, displays "Validation passed"
+- [ ] `lzctl validate` without `lzctl.yaml` → exit 1, readable error message
+- [ ] `lzctl validate --json` → JSON output `{valid: true, errors: []}`
+- [ ] `lzctl validate` with invalid config (missing required field) → exit 1, lists errors
+- [ ] `lzctl validate` verifies that each layer declared in `lzctl.yaml` has its `platform/<layer>/` directory with at minimum `main.tf` and `backend.hcl`
+- [ ] `lzctl validate` verifies that backend keys (`key = "<layer>.tfstate"`) are unique per layer
 
-*`plan` — validation du repo généré, pas de l'exécution Terraform :*
-- [ ] `lzctl plan --dry-run` → affiche l'ordre d'exécution des layers (CAF dependency order) sans appeler terraform
-- [ ] `lzctl plan --layer connectivity` → cible uniquement connectivity ; le message de sortie liste uniquement cette layer
-- [ ] `lzctl plan` sur un repo généré valide → fichiers `platform/<layer>/` trouvés dans le bon ordre (management-groups → identity → management → governance → connectivity)
-- [ ] `lzctl plan` sans repo initialisé → exit 1, message "run lzctl init first"
+*`plan` — generated repo validation, not Terraform execution:*
+- [ ] `lzctl plan --dry-run` → displays layer execution order (CAF dependency order) without calling terraform
+- [ ] `lzctl plan --layer connectivity` → targets only connectivity; the output message lists only this layer
+- [ ] `lzctl plan` on a valid generated repo → `platform/<layer>/` files found in the correct order (management-groups → identity → management → governance → connectivity)
+- [ ] `lzctl plan` without initialized repo → exit 1, message "run lzctl init first"
 
-*`apply` — validation de la séquence générée et des pipelines :*
-- [ ] `lzctl apply --dry-run` → affiche la séquence d'exécution par layer avec `max-parallel: 1` respecté (single layer at a time)
-- [ ] `lzctl apply` sans `--auto-approve` → demande confirmation ; input "no" → annulation propre (exit 0, message "Apply cancelled")
-- [ ] `lzctl apply --layer management-groups` → sortie indique uniquement la layer management-groups
-- [ ] Fichier pipeline généré par `lzctl init` contient bien `max-parallel: 1` pour le job de déploiement
-- [ ] Chaque layer du pipeline généré référence le bon `backend.hcl` (ex: `connectivity.tfstate`, pas `management-groups.tfstate`)
+*`apply` — generated sequence and pipeline validation:*
+- [ ] `lzctl apply --dry-run` → displays the execution sequence per layer with `max-parallel: 1` respected (single layer at a time)
+- [ ] `lzctl apply` without `--auto-approve` → prompts for confirmation; input "no" → clean cancellation (exit 0, message "Apply cancelled")
+- [ ] `lzctl apply --layer management-groups` → output indicates only the management-groups layer
+- [ ] Pipeline file generated by `lzctl init` contains `max-parallel: 1` for the deployment job
+- [ ] Each layer in the generated pipeline references the correct `backend.hcl` (e.g., `connectivity.tfstate`, not `management-groups.tfstate`)
 
-**Notes d'implémentation :**
-- Tous ces tests s'exécutent dans un `t.TempDir()` avec un repo généré par `lzctl init --tenant-id <uuid> --dry-run=false`
-- Aucun mock Terraform nécessaire : les assertions portent sur les *fichiers générés*, pas sur la sortie d'une commande terraform
+**Implementation Notes:**
+- All these tests run in a `t.TempDir()` with a repo generated by `lzctl init --tenant-id <uuid> --dry-run=false`
+- No Terraform mock needed: assertions target the *generated files*, not the output of a terraform command
 
 ---
 
-### E6-S4 : Couverture de tests — `drift`, `rollback`, `history`
+### E6-S4: Test Coverage — `drift`, `rollback`, `history`
 
 **Points:** 8
-**Dependencies:** → E4-S2, rollback existant
+**Dependencies:** → E4-S2, existing rollback
 **Priority:** Should
 
 **Description:**
-Les commandes `drift`, `rollback` et `history` ont peu ou pas de tests sur leur logique métier. Conformément à l'architecture (les pipelines générés appellent Terraform directement), les tests valident la *logique de parsing et de génération de rapport* de lzctl à partir d'une sortie Terraform fixturée — pas d'exécution Terraform réelle. Les tests d'intégration Azure réels (état live) restent hors PR (nightly/manual, cf. E6-S9).
+The `drift`, `rollback`, and `history` commands have little or no tests on their business logic. In accordance with the architecture (generated pipelines call Terraform directly), tests validate lzctl's *parsing and report generation logic* from a fixtured Terraform output — not actual Terraform execution. Real Azure integration tests (live state) remain outside PRs (nightly/manual, see E6-S9).
 
-**Fichiers à créer/compléter :**
+**Files to create/complete:**
 ```
-cmd/drift_test.go                        (compléter au-delà du --help)
-cmd/rollback_test.go                     (compléter les cas d'erreur)
+cmd/drift_test.go                        (extend beyond --help)
+cmd/rollback_test.go                     (extend error cases)
 cmd/history_test.go
 internal/drift/detector_test.go
 test/fixtures/terraform/plan-no-changes.json   (fixture)
-test/fixtures/terraform/plan-with-drift.json   (fixture : 2 add, 1 change)
+test/fixtures/terraform/plan-with-drift.json   (fixture: 2 add, 1 change)
 ```
 
-**Critères d'acceptation :**
+**Acceptance Criteria:**
 
-*`drift` — parsing de la sortie terraform plan fixturée :*
-- [ ] Fixture `plan-no-changes.json` (exit 0) → rapport "No drift detected across N layers", exit 0
-- [ ] Fixture `plan-with-drift.json` (exit 2) → rapport liste les ressources modifiées, exit non nul si `--fail-on-drift`
-- [ ] `--json` → JSON structuré `{layers: [{name, status, changes: [{action, resource}]}]}`
-- [ ] `--layer <name>` → le rapport ne porte que sur la layer nommée
-- [ ] Pipeline drift généré par `lzctl init` contient bien `lzctl drift --json` (pas `terraform plan` brut) pour la détection centralisée
+*`drift` — parsing fixtured terraform plan output:*
+- [ ] Fixture `plan-no-changes.json` (exit 0) → report "No drift detected across N layers", exit 0
+- [ ] Fixture `plan-with-drift.json` (exit 2) → report lists modified resources, non-zero exit if `--fail-on-drift`
+- [ ] `--json` → structured JSON `{layers: [{name, status, changes: [{action, resource}]}]}`
+- [ ] `--layer <name>` → report covers only the named layer
+- [ ] Drift pipeline generated by `lzctl init` contains `lzctl drift --json` (not raw `terraform plan`) for centralized detection
 
-*`rollback` — logique d'identification du snapshot précédent :*
-- [ ] Rollback réussi vers snapshot précédent → exit 0, affiche la liste des opérations à effectuer
-- [ ] Rollback sur layer inexistante → erreur lisible, exit 1
-- [ ] `--dry-run` → liste les fichiers state qui seraient restaurés, sans modification
-- [ ] Absence de snapshot → message d'erreur clair "No previous state found for layer <name>"
-- [ ] Les fichiers de snapshot utilisent la convention de nommage `<layer>-<timestamp>.tfstate.bak` (cohérence avec template généré)
+*`rollback` — previous snapshot identification logic:*
+- [ ] Successful rollback to previous snapshot → exit 0, displays the list of operations to perform
+- [ ] Rollback on non-existent layer → readable error, exit 1
+- [ ] `--dry-run` → lists state files that would be restored, without modification
+- [ ] No snapshot available → clear error message "No previous state found for layer <name>"
+- [ ] Snapshot files use the naming convention `<layer>-<timestamp>.tfstate.bak` (consistent with generated template)
 
-*`history` — lecture du log d'audit local :*
-- [ ] Log d'audit vide (`~/.lzctl/audit.log` absent ou vide) → message "No audit history found"
-- [ ] Log non vide → affiche les N dernières entrées : commande, timestamp, exit code
-- [ ] `--json` → sortie JSON de la liste
-- [ ] `--limit N` → limite l'affichage aux N entrées les plus récentes
+*`history` — local audit log reading:*
+- [ ] Empty audit log (`~/.lzctl/audit.log` missing or empty) → message "No audit history found"
+- [ ] Non-empty log → displays the last N entries: command, timestamp, exit code
+- [ ] `--json` → JSON output of the list
+- [ ] `--limit N` → limits display to the N most recent entries
 
-**Notes d'implémentation :**
-- Les fixtures JSON (`plan-no-changes.json`, `plan-with-drift.json`) reproduisent le format exact de `terraform show -json` sur un plan existant
-- Aucun appel réseau ni terraform réel en test unitaire — les tests d'intégration Azure live sont planifiés dans E6-S9 (nightly)
+**Implementation Notes:**
+- JSON fixtures (`plan-no-changes.json`, `plan-with-drift.json`) reproduce the exact format of `terraform show -json` on an existing plan
+- No network calls or real terraform in unit tests — live Azure integration tests are planned in E6-S9 (nightly)
 
 ---
 
-### E6-S5 : Enforcement de couverture en CI
+### E6-S5: Coverage Enforcement in CI
 
 **Points:** 3
 **Dependencies:** → E6-S3, E6-S4
 **Priority:** Should
 
 **Description:**
-Ajouter un seuil minimum de couverture dans le CI pour éviter les régressions silencieuses. Le PRD cible **80 %** de couverture du code Go ; la mise en place se fait en deux paliers pour ne pas bloquer le CI sur le code existant.
+Add a minimum coverage threshold in CI to prevent silent regressions. The PRD targets **80%** Go code coverage; implementation is done in two tiers to avoid blocking CI on existing code.
 
-**Fichiers à modifier :**
+**Files to modify:**
 ```
 .github/workflows/ci.yml        (step coverage gate)
 Makefile                        (target test-coverage-check)
 CONTRIBUTING.md                 (section testing expectations)
 ```
 
-**Critères d'acceptation :**
-- [ ] CI calcule la couverture globale via `go test -coverprofile=coverage.out ./...`
-- [ ] **Palier 1 (Sprint 14) : seuil à 60 %** — valeur réaliste pour l'état du code après E6-S3/S4
-- [ ] **Palier 2 (Sprint 17, cible PRD) : seuil à 80 %** — atteint après complétion de E6 et E7
-- [ ] Le seuil actuel est documenté dans un commentaire dans `ci.yml` avec la date de révision prévue
-- [ ] Si couverture < seuil → le job `test` échoue avec message lisible : `"Coverage X.X% is below threshold Y%"`
-- [ ] Le rapport de couverture est uploadé comme artefact CI (déjà présent, à conserver)
-- [ ] `make test-coverage-check` reproduit la vérification localement avec le même seuil
-- [ ] Documentation dans `CONTRIBUTING.md` : tableau des seuils par palier + commandes pour mesurer
+**Acceptance Criteria:**
+- [ ] CI computes global coverage via `go test -coverprofile=coverage.out ./...`
+- [ ] **Tier 1 (Sprint 14): threshold at 60%** — realistic value for code state after E6-S3/S4
+- [ ] **Tier 2 (Sprint 17, PRD target): threshold at 80%** — reached after completion of E6 and E7
+- [ ] The current threshold is documented in a comment in `ci.yml` with the planned revision date
+- [ ] If coverage < threshold → the `test` job fails with a readable message: `"Coverage X.X% is below threshold Y%"`
+- [ ] The coverage report is uploaded as a CI artifact (already present, to be preserved)
+- [ ] `make test-coverage-check` reproduces the check locally with the same threshold
+- [ ] Documentation in `CONTRIBUTING.md`: table of thresholds per tier + commands to measure
 
-**Notes d'implémentation :**
-- Utiliser `go tool cover -func=coverage.out` et `awk` pour extraire le pourcentage total
-- Alternative : `github.com/vladopajic/go-test-coverage` action (supporte les seuils par package)
-- Exclure les packages sans logique testable (`schemas/embed.go`, `templates/embed.go`) avec `coverpkg` ou `exclude` pattern
+**Implementation Notes:**
+- Use `go tool cover -func=coverage.out` and `awk` to extract the total percentage
+- Alternative: `github.com/vladopajic/go-test-coverage` action (supports per-package thresholds)
+- Exclude packages without testable logic (`schemas/embed.go`, `templates/embed.go`) with `coverpkg` or `exclude` pattern
 
 ---
 
-### E6-S6 : Tests pour le check `state-backend` du `doctor`
+### E6-S6: Tests for the `state-backend` Check in `doctor`
 
 **Points:** 5
 **Dependencies:** → E1-S3
 **Priority:** Should
 
 **Description:**
-`checkStateBackend()` a été ajouté à `AllChecks()` mais n'a pas de tests unitaires dédiés. Couvrir tous ses chemins de retour : warn (az non connecté), warn (aucun compte taggé), pass (compte trouvé et accessible), warn (compte trouvé mais inaccessible).
+`checkStateBackend()` was added to `AllChecks()` but has no dedicated unit tests. Cover all its return paths: warn (az not connected), warn (no tagged account), pass (account found and accessible), warn (account found but inaccessible).
 
-**Fichiers à modifier :**
+**Files to modify:**
 ```
-internal/doctor/checks_test.go    (ajouter les cas state-backend)
+internal/doctor/checks_test.go    (add state-backend cases)
 ```
 
-**Critères d'acceptation :**
+**Acceptance Criteria:**
 - [ ] `TestCheckStateBackend_AzNotConnected` → `StatusWarn`, message "Could not query"
 - [ ] `TestCheckStateBackend_NoTaggedAccount` → `StatusWarn`, message "No storage account tagged"
-- [ ] `TestCheckStateBackend_FoundAndAccessible` → `StatusPass`, message contient le nom du compte
-- [ ] `TestCheckStateBackend_FoundButInaccessible` → `StatusWarn`, message contient le nom du compte
-- [ ] Les mocks `az storage account list` et `az storage account show` sont correctement chaînés
-- [ ] Tous les tests passent avec `go test ./internal/doctor/...`
+- [ ] `TestCheckStateBackend_FoundAndAccessible` → `StatusPass`, message contains the account name
+- [ ] `TestCheckStateBackend_FoundButInaccessible` → `StatusWarn`, message contains the account name
+- [ ] The `az storage account list` and `az storage account show` mocks are correctly chained
+- [ ] All tests pass with `go test ./internal/doctor/...`
 
 ---
 
-### E6-S7 : Smoke test CLI multi-plateforme en CI
+### E6-S7: Multi-Platform CLI Smoke Test in CI
 
 **Points:** 5
 **Dependencies:** → E1-S1
 **Priority:** Should
 
 **Description:**
-Le smoke test actuel (`./bin/lzctl version`) tourne uniquement sur `ubuntu-latest`. Le build matriciel (ubuntu, macos, windows) ne valide pas le binaire après compilation. Ajouter un smoke test par OS dans la matrice.
+The current smoke test (`./bin/lzctl version`) runs only on `ubuntu-latest`. The matrix build (ubuntu, macos, windows) does not validate the binary after compilation. Add a smoke test per OS in the matrix.
 
-**Fichiers à modifier :**
+**Files to modify:**
 ```
 .github/workflows/ci.yml
 ```
 
-**Critères d'acceptation :**
-- [ ] Job `build` étendu ou remplacé par un job `build-and-smoke` matriciel sur [ ubuntu-latest, macos-latest, windows-latest ]
-- [ ] Chaque OS compile le binaire et exécute : `lzctl version`, `lzctl --help`, `lzctl doctor --help`
-- [ ] Sur Windows : le binaire s'appelle `lzctl.exe`, le chemin est adapté
-- [ ] En cas d'échec sur un OS, le job matriciel signale lequel a échoué
-- [ ] Artefacts binaires uploadés par OS (pour inspection manuelle)
+**Acceptance Criteria:**
+- [ ] `build` job extended or replaced by a `build-and-smoke` matrix job on [ ubuntu-latest, macos-latest, windows-latest ]
+- [ ] Each OS compiles the binary and runs: `lzctl version`, `lzctl --help`, `lzctl doctor --help`
+- [ ] On Windows: the binary is named `lzctl.exe`, the path is adapted
+- [ ] On failure on one OS, the matrix job indicates which one failed
+- [ ] Binary artifacts uploaded per OS (for manual inspection)
 
-**Notes d'implémentation :**
-- `go build -o bin/lzctl${{ matrix.ext }} .` avec `matrix.ext` = `""` or `".exe"`
-- Utiliser `shell: bash` y compris sur Windows (Git Bash disponible dans les runners GitHub)
+**Implementation Notes:**
+- `go build -o bin/lzctl${{ matrix.ext }} .` with `matrix.ext` = `""` or `".exe"`
+- Use `shell: bash` including on Windows (Git Bash available in GitHub runners)
 
 ---
 
-### E6-S8 : Tests unitaires — `localName`, `inferLayer`, et `GenerateAll` du `HCLGenerator`
+### E6-S8: Unit Tests — `localName`, `inferLayer`, and `GenerateAll` in `HCLGenerator`
 
 **Points:** 3
 **Dependencies:** → E3-S5
 **Priority:** Must
 
 **Description:**
-Suite aux bugs corrigés (`localName` n'ignorait pas les espaces, `GenerateAll` ne créait pas de sous-dossier `general/`), ajouter des cas limites explicites dans les tests pour prévenir les régressions.
+Following bug fixes (`localName` didn't ignore spaces, `GenerateAll` didn't create `general/` subfolder), add explicit edge cases in tests to prevent regressions.
 
-**Fichiers à modifier :**
+**Files to modify:**
 ```
 internal/importer/hcl_generator_test.go
 ```
 
-**Critères d'acceptation :**
-- [ ] `TestHCLGenerator_LocalName` couvre : tirets, underscores, espaces, caractères spéciaux, nom vide, nom tout-majuscule
-- [ ] `TestHCLGenerator_GenerateAll_GroupsByLayer` vérifie que **tous** les layers (y compris `general`) génèrent des chemins `<dir>/<layer>/import.tf` et `<dir>/<layer>/resources.tf`
-- [ ] `TestHCLGenerator_GenerateAll_OnlyUnsupported` : si tous les ressources sont `Supported: false`, les fichiers générés contiennent uniquement des `# TODO:` mais sont quand même créés
-- [ ] `TestHCLGenerator_GenerateAll_MultipleLayersNoCollision` : ressources sur plusieurs layers → chemins distincts, pas de collision
+**Acceptance Criteria:**
+- [ ] `TestHCLGenerator_LocalName` covers: dashes, underscores, spaces, special characters, empty name, all-uppercase name
+- [ ] `TestHCLGenerator_GenerateAll_GroupsByLayer` verifies that **all** layers (including `general`) generate paths `<dir>/<layer>/import.tf` and `<dir>/<layer>/resources.tf`
+- [ ] `TestHCLGenerator_GenerateAll_OnlyUnsupported`: if all resources have `Supported: false`, generated files contain only `# TODO:` but are still created
+- [ ] `TestHCLGenerator_GenerateAll_MultipleLayersNoCollision`: resources on multiple layers → distinct paths, no collision
 
 ---
 
-### E6-S9 : Tests d'intégration Azure live (nightly / manuel)
+### E6-S9: Live Azure Integration Tests (nightly / manual)
 
 **Points:** 3
 **Dependencies:** → E3-S1, E6-S4
 **Priority:** Should
 
 **Description:**
-Les tests unitaires et d'intégration en PR s'exécutent sans accès Azure réel (mocks). Les tests qui nécessitent un tenant Azure de test (vérification de drift live, validation d'état réel) doivent s'exécuter dans un workflow séparé, déclenché manuellement ou en nightly — conformément à l'architecture (workflow d'intégration hebdomadaire sur tenant de test mentionné dans `architecture.md`).
+Unit and integration tests in PRs run without real Azure access (mocks). Tests that require a test Azure tenant (live drift verification, real state validation) must run in a separate workflow, triggered manually or nightly — in accordance with the architecture (weekly integration workflow on test tenant mentioned in `architecture.md`).
 
-**Fichiers à créer :**
+**Files to create:**
 ```
-.github/workflows/integration-azure.yml    (workflow nightly/manual)
+.github/workflows/integration-azure.yml    (nightly/manual workflow)
 test/integration/azure_live_test.go        (build tag: //go:build integration)
 docs/development.md                        (section "Running Azure integration tests")
 ```
 
-**Critères d'acceptation :**
-- [ ] Nouveau workflow `integration-azure.yml` avec `on: [workflow_dispatch, schedule: cron '0 2 * * 1']` (lundi 2h)
-- [ ] Tests marqués avec build tag `//go:build integration` → exclus des `go test ./...` classiques
-- [ ] Le workflow requiert des secrets : `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_SUBSCRIPTION_ID` (OIDC)
-- [ ] Au moins 2 tests live : `TestLiveDoctor_AzureSession` et `TestLiveDrift_NoChanges` (sur tenant de test vide)
-- [ ] Le workflow CI PR n'inclut **jamais** les tests `integration` (flag `-tags=integration` absent)
-- [ ] `CONTRIBUTING.md` et `docs/development.md` documentent clairement la séparation nightly vs PR
+**Acceptance Criteria:**
+- [ ] New `integration-azure.yml` workflow with `on: [workflow_dispatch, schedule: cron '0 2 * * 1']` (Monday 2am)
+- [ ] Tests tagged with build tag `//go:build integration` → excluded from regular `go test ./...`
+- [ ] The workflow requires secrets: `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_SUBSCRIPTION_ID` (OIDC)
+- [ ] At least 2 live tests: `TestLiveDoctor_AzureSession` and `TestLiveDrift_NoChanges` (on empty test tenant)
+- [ ] The PR CI workflow **never** includes `integration` tests (`-tags=integration` flag absent)
+- [ ] `CONTRIBUTING.md` and `docs/development.md` clearly document the nightly vs PR separation
 
 ---
 
-**Epic 6 Total : 9 stories, 41 points**
+**Epic 6 Total: 9 stories, 41 points**
 
 ---
 
-## Epic 7 — Mode Non-interactif & GitOps Headless
+## Epic 7 — Non-Interactive Mode & GitOps Headless
 
-> **Goal:** Permettre à `lzctl init` (et aux futures commandes) de fonctionner entièrement sans TTY — depuis un pipeline CI, un script ou une action GitHub — en passant des flags ou des variables d'environnement.
-> **Phase:** Transverse (priorité haute pour les équipes plateforme qui automatisent l'onboarding)
+> **Goal:** Allow `lzctl init` (and future commands) to run entirely without a TTY — from a CI pipeline, a script, or a GitHub action — by passing flags or environment variables.
+> **Phase:** Cross-cutting (high priority for platform teams automating onboarding)
 > **Total points:** 28
 
 ---
 
-### E7-S1 : Compléter les flags non-interactifs de `lzctl init`
+### E7-S1: Complete Non-Interactive Flags for `lzctl init`
 
 **Points:** 5
 **Dependencies:** → E1-S5 (wizard), E1-S13 (init command)
 **Priority:** Must
 
 **Description:**
-La commande `lzctl init --tenant-id <uuid>` évite maintenant le wizard, mais utilise des valeurs CAF standard pour tous les autres paramètres. Les équipes plateforme ont besoin de contrôler chaque dimension sans interaction.
+The `lzctl init --tenant-id <uuid>` command now skips the wizard, but uses standard CAF values for all other parameters. Platform teams need to control each dimension without interaction.
 
-**Fichiers à modifier :**
+**Files to modify:**
 ```
 cmd/init.go
 cmd/cmd_test.go
 ```
 
-**Nouveaux flags à ajouter :**
+**New flags to add:**
 
-| Flag | Type | Défaut | Description |
-|------|------|--------|-------------|
-| `--subscription-id` | string | `` | Azure subscription ID de management |
-| `--project-name` | string | `"landing-zone"` | Nom du projet |
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--subscription-id` | string | `` | Azure management subscription ID |
+| `--project-name` | string | `"landing-zone"` | Project name |
 | `--mg-model` | string | `"caf-standard"` | `caf-standard` \| `caf-lite` |
 | `--connectivity` | string | `"hub-spoke"` | `hub-spoke` \| `vwan` \| `none` |
-| `--identity` | string | `"workload-identity-federation"` | Modèle d'identité |
-| `--primary-region` | string | `"westeurope"` | Région principale Azure |
-| `--secondary-region` | string | `` | Région secondaire (optionnel) |
+| `--identity` | string | `"workload-identity-federation"` | Identity model |
+| `--primary-region` | string | `"westeurope"` | Primary Azure region |
+| `--secondary-region` | string | `` | Secondary region (optional) |
 | `--cicd-platform` | string | `"github-actions"` | `github-actions` \| `azure-devops` |
 | `--state-strategy` | string | `"create-new"` | `create-new` \| `existing` \| `terraform-cloud` |
 
-**Critères d'acceptation :**
-- [ ] Tous les flags ci-dessus sont enregistrés sur `initCmd`
-- [ ] Quand `--tenant-id` est fourni, le branch non-interactif de `runInit` utilise toutes les valeurs des flags (priorité : flag > défaut wizard)
-- [ ] `lzctl init --tenant-id <uuid> --project-name myproj --mg-model caf-lite --connectivity none` → génère un projet sans aucun prompt
-- [ ] `lzctl init --tenant-id <uuid> --dry-run` → affiche les fichiers qui seraient générés sans les écrire
-- [ ] L'aide (`--help`) documente clairement les flags et leurs valeurs possibles avec `enum` dans le texte
-- [ ] Tests : un test par combinaison significative (caf-lite + none, caf-standard + hub-spoke, caf-standard + vwan)
-- [ ] Validation : si la valeur d'un enum est invalide (ex: `--connectivity foobar`) → erreur claire avant démarrage
+**Acceptance Criteria:**
+- [ ] All flags above are registered on `initCmd`
+- [ ] When `--tenant-id` is provided, the non-interactive branch of `runInit` uses all flag values (priority: flag > wizard default)
+- [ ] `lzctl init --tenant-id <uuid> --project-name myproj --mg-model caf-lite --connectivity none` → generates a project without any prompt
+- [ ] `lzctl init --tenant-id <uuid> --dry-run` → displays the files that would be generated without writing them
+- [ ] The help (`--help`) clearly documents the flags and their possible values with `enum` in the text
+- [ ] Tests: one test per significant combination (caf-lite + none, caf-standard + hub-spoke, caf-standard + vwan)
+- [ ] Validation: if an enum value is invalid (e.g., `--connectivity foobar`) → clear error before startup
 
 ---
 
-### E7-S2 : Support des variables d'environnement `LZCTL_*`
+### E7-S2: Environment Variable Support `LZCTL_*`
 
 **Points:** 3
 **Dependencies:** → E7-S1
 **Priority:** Must
 
 **Description:**
-Les pipelines CI stockent les secrets et paramètres dans des variables d'environnement. Viper est déjà configuré avec `AutomaticEnv` mais les variables ne couvrent pas les flags de `init`. Mapper chaque flag init à une variable d'environnement.
+CI pipelines store secrets and parameters in environment variables. Viper is already configured with `AutomaticEnv` but the variables don't cover `init` flags. Map each init flag to an environment variable.
 
-**Fichiers à modifier :**
+**Files to modify:**
 ```
-cmd/init.go          (BindPFlag + BindEnv pour chaque flag)
-cmd/cmd_test.go      (tester les env vars)
+cmd/init.go          (BindPFlag + BindEnv for each flag)
+cmd/cmd_test.go      (test env vars)
 docs/commands/init.md
 ```
 
-**Variables d'environnement :**
+**Environment Variables:**
 
-| Variable | Flag correspondant |
+| Variable | Corresponding Flag |
 |----------|-------------------|
 | `LZCTL_TENANT_ID` | `--tenant-id` |
 | `LZCTL_SUBSCRIPTION_ID` | `--subscription-id` |
@@ -1787,66 +1787,66 @@ docs/commands/init.md
 | `LZCTL_PRIMARY_REGION` | `--primary-region` |
 | `LZCTL_CICD_PLATFORM` | `--cicd-platform` |
 
-**Critères d'acceptation :**
-- [ ] `LZCTL_TENANT_ID=<uuid> lzctl init` fonctionne sans `--tenant-id` (priorité : flag > env > défaut)
-- [ ] `LZCTL_CONNECTIVITY=none LZCTL_MG_MODEL=caf-lite lzctl init --tenant-id <uuid>` → config lite sans connectivity
-- [ ] Tests : `t.Setenv("LZCTL_TENANT_ID", uuid)` + `executeCommand("init")` → no error
-- [ ] Documentation dans `docs/commands/init.md` : tableau flags / env vars
-- [ ] L'aide `--help` mentionne le préfixe `LZCTL_` pour les surcharges
+**Acceptance Criteria:**
+- [ ] `LZCTL_TENANT_ID=<uuid> lzctl init` works without `--tenant-id` (priority: flag > env > default)
+- [ ] `LZCTL_CONNECTIVITY=none LZCTL_MG_MODEL=caf-lite lzctl init --tenant-id <uuid>` → lite config without connectivity
+- [ ] Tests: `t.Setenv("LZCTL_TENANT_ID", uuid)` + `executeCommand("init")` → no error
+- [ ] Documentation in `docs/commands/init.md`: flags / env vars table
+- [ ] The `--help` output mentions the `LZCTL_` prefix for overrides
 
 ---
 
-### E7-S3 : Mode `--ci` (non-TTY strict)
+### E7-S3: `--ci` Mode (strict non-TTY)
 
 **Points:** 5
 **Dependencies:** → E7-S1, E7-S2
 **Priority:** Should
 
 **Description:**
-Quand lzctl est exécuté dans un pipeline (pas de TTY), tout prompt interactif doit échouer proprement avec un message explicite plutôt que de bloquer ou produire une erreur cryptique (`EOF`). Ajouter un flag global `--ci` qui active ce mode.
+When lzctl is run in a pipeline (no TTY), any interactive prompt must fail cleanly with an explicit message rather than blocking or producing a cryptic error (`EOF`). Add a global `--ci` flag to enable this mode.
 
-**Fichiers à modifier :**
+**Files to modify:**
 ```
-cmd/root.go              (ajouter flag global --ci)
-cmd/init.go              (appliquer la garde --ci)
-internal/wizard/wizard.go   (mode strict non-TTY)
+cmd/root.go              (add global --ci flag)
+cmd/init.go              (apply --ci guard)
+internal/wizard/wizard.go   (strict non-TTY mode)
 cmd/cmd_test.go
 ```
 
-**Critères d'acceptation :**
-- [ ] `lzctl --ci init` sans `--tenant-id` → erreur explicite : `"--ci mode requires --tenant-id (or LZCTL_TENANT_ID)"`
-- [ ] En mode CI, toute tentative de prompt retourne immédiatement une erreur (pas de blocage sur stdin)
-- [ ] Détection automatique du mode CI si `CI=true` (variable standard GitHub Actions / GitLab / etc.)
-- [ ] `lzctl init --ci --tenant-id <uuid>` (ou `CI=true lzctl init --tenant-id <uuid>`) → fonctionne sans prompt
-- [ ] Toutes les commandes avec wizard (init, workload add, import) respectent le mode CI
-- [ ] Exit code 1 avec message lisible si mode CI et paramètre obligatoire manquant
-- [ ] Tests : `t.Setenv("CI", "true")` vérifie que le wizard ne démarre pas
+**Acceptance Criteria:**
+- [ ] `lzctl --ci init` without `--tenant-id` → explicit error: `"--ci mode requires --tenant-id (or LZCTL_TENANT_ID)"`
+- [ ] In CI mode, any prompt attempt returns an error immediately (no blocking on stdin)
+- [ ] Automatic CI mode detection if `CI=true` (standard GitHub Actions / GitLab / etc. variable)
+- [ ] `lzctl init --ci --tenant-id <uuid>` (or `CI=true lzctl init --tenant-id <uuid>`) → works without prompt
+- [ ] All commands with a wizard (init, workload add, import) respect CI mode
+- [ ] Exit code 1 with readable message if CI mode and required parameter missing
+- [ ] Tests: `t.Setenv("CI", "true")` verifies that the wizard does not start
 
 ---
 
-### E7-S4 : Input déclaratif pipeline → génération de `lzctl.yaml`
+### E7-S4: Declarative Pipeline Input → `lzctl.yaml` Generation
 
 **Points:** 5
 **Dependencies:** → E7-S1, E7-S2
 **Priority:** Could
 
 **Description:**
-`lzctl.yaml` est et reste le **seul manifeste déclaratif** de l'état du projet (source of truth, défini dans le PRD). Pour les équipes qui onboardent en masse depuis un pipeline CI, permettre de passer un fichier d'entrée simplifié (`lzctl-init-input.yaml`) qui est **converti en `lzctl.yaml`** lors de l'init, puis supprimé ou archivé — il ne coexiste pas avec `lzctl.yaml`.
+`lzctl.yaml` is and remains the **only declarative manifest** of the project state (source of truth, defined in the PRD). For teams onboarding at scale from a CI pipeline, allow passing a simplified input file (`lzctl-init-input.yaml`) that is **converted into `lzctl.yaml`** during init, then deleted or archived — it does not coexist with `lzctl.yaml`.
 
-Ce fichier d'entrée est un *input transitoire* (one-shot), pas un second manifeste à maintenir.
+This input file is a *transient input* (one-shot), not a second manifest to maintain.
 
-**Fichiers à créer :**
+**Files to create:**
 ```
-docs/examples/pipeline-init/lzctl-init-input.yaml   (exemple d'input CI)
+docs/examples/pipeline-init/lzctl-init-input.yaml   (CI input example)
 cmd/init.go                                          (support --from-file)
-internal/config/init_input.go                        (struct + loader + "converter vers LZConfig")
+internal/config/init_input.go                        (struct + loader + "converter to LZConfig")
 internal/config/init_input_test.go
 ```
 
-**Format `lzctl-init-input.yaml` (input CI, one-shot) :**
+**`lzctl-init-input.yaml` format (CI input, one-shot):**
 ```yaml
-# Input transitoire pour lzctl init --from-file
-# Ce fichier est converti en lzctl.yaml et n'est plus nécessaire ensuite.
+# Transient input for lzctl init --from-file
+# This file is converted into lzctl.yaml and is no longer needed afterwards.
 tenantId: "00000000-0000-0000-0000-000000000001"
 projectName: "contoso-platform"
 mgModel: "caf-standard"
@@ -1865,104 +1865,104 @@ landingZones:
     addressSpace: "10.20.0.0/16"
 ```
 
-**Critères d'acceptation :**
-- [ ] `lzctl init --from-file lzctl-init-input.yaml` convertit l'input en `lzctl.yaml` complet (avec toutes les sections CAF) puis exécute l'init normalement
-- [ ] Le fichier d'entrée **ne remplace pas** `lzctl.yaml` dans le repo : après `lzctl init --from-file`, seul `lzctl.yaml` est présent comme source of truth
-- [ ] Si `lzctl.yaml` existe déjà dans le repo cible → erreur explicite "lzctl.yaml already exists, use --force to overwrite" (pas de merge silencieux)
-- [ ] Validation de l'input avant conversion (champs requis, enums valides, pas d'overlap d'adresses IP)
-- [ ] `--dry-run` affiche le `lzctl.yaml` qui serait généré sans l'écrire
-- [ ] Tests : fixture `lzctl-init-input.yaml` avec 2 landing zones → vérifier que `lzctl.yaml` généré est valide et contient les 2 zones
+**Acceptance Criteria:**
+- [ ] `lzctl init --from-file lzctl-init-input.yaml` converts the input into a complete `lzctl.yaml` (with all CAF sections) then runs init normally
+- [ ] The input file **does not replace** `lzctl.yaml` in the repo: after `lzctl init --from-file`, only `lzctl.yaml` is present as source of truth
+- [ ] If `lzctl.yaml` already exists in the target repo → explicit error "lzctl.yaml already exists, use --force to overwrite" (no silent merge)
+- [ ] Input validation before conversion (required fields, valid enums, no IP address overlap)
+- [ ] `--dry-run` displays the `lzctl.yaml` that would be generated without writing it
+- [ ] Tests: fixture `lzctl-init-input.yaml` with 2 landing zones → verify that generated `lzctl.yaml` is valid and contains both zones
 
-**Notes d'implémentation :**
-- `InitInput.ToLZConfig()` → retourne un `*config.LZConfig` complet avec les défauts CAF appliqués
-- Mentionner dans la doc que `lzctl-init-input.yaml` peut être committé dans un repo de bootstrap séparé (pas dans le repo landing zone cible)
+**Implementation Notes:**
+- `InitInput.ToLZConfig()` → returns a complete `*config.LZConfig` with CAF defaults applied
+- Mention in the docs that `lzctl-init-input.yaml` can be committed in a separate bootstrap repo (not in the target landing zone repo)
 
 ---
 
-### E7-S5 : Documentation — guide d'utilisation en pipeline CI
+### E7-S5: Documentation — CI Pipeline Usage Guide
 
 **Points:** 3
 **Dependencies:** → E7-S1, E7-S2, E7-S3
 **Priority:** Should
 
 **Description:**
-Documenter de bout en bout comment utiliser `lzctl` depuis un pipeline GitHub Actions et Azure DevOps sans interaction manuelle.
+Document end-to-end how to use `lzctl` from a GitHub Actions and Azure DevOps pipeline without manual interaction.
 
-**Fichiers à créer :**
+**Files to create:**
 ```
 docs/operations/ci-headless.md
 docs/examples/pipeline-init/github-actions-onboarding.yml
 docs/examples/pipeline-init/azure-devops-onboarding.yml
 ```
 
-**Critères d'acceptation :**
-- [ ] Guide couvre : prérequis (OIDC ou SP), variables secrets à configurer, étapes `init → validate → plan → apply`
-- [ ] Exemple complet GitHub Actions : job qui crée un nouveau projet landing zone via `lzctl init --ci`
-- [ ] Exemple complet Azure DevOps : pipeline YAML équivalent
-- [ ] Section troubleshooting : erreurs courantes en CI (no TTY, permissions, az login)
-- [ ] Lien depuis `README.md` et depuis `docs/commands/init.md`
+**Acceptance Criteria:**
+- [ ] Guide covers: prerequisites (OIDC or SP), secrets to configure, steps `init → validate → plan → apply`
+- [ ] Complete GitHub Actions example: job that creates a new landing zone project via `lzctl init --ci`
+- [ ] Complete Azure DevOps example: equivalent YAML pipeline
+- [ ] Troubleshooting section: common CI errors (no TTY, permissions, az login)
+- [ ] Link from `README.md` and from `docs/commands/init.md`
 
 ---
 
-### E7-S6 : Test d'intégration headless end-to-end
+### E7-S6: Headless End-to-End Integration Test
 
 **Points:** 5
 **Dependencies:** → E7-S1, E7-S2, E7-S3
 **Priority:** Should
 
 **Description:**
-Test d'intégration qui simule un pipeline CI complet sans TTY : init non-interactif → validate → plan (dry-run) → vérification du repo généré.
+Integration test that simulates a complete CI pipeline without TTY: non-interactive init → validate → plan (dry-run) → generated repo verification.
 
-**Fichiers à créer :**
+**Files to create:**
 ```
 test/integration/headless_test.go
 ```
 
-**Critères d'acceptation :**
-- [ ] Test `TestHeadlessInit_FullWorkflow` : `lzctl init --tenant-id <uuid> --ci` dans un tmpDir → repo généré valide
-- [ ] Validation du repo : `lzctl validate` dans le tmpDir → exit 0
-- [ ] Vérification des fichiers générés : présence de `platform/`, `landing-zones/`, `pipelines/`, `lzctl.yaml`
-- [ ] Test exécuté sans aucun prompt (stdin fermé) → pas de blocage ni de panic
-- [ ] `t.Setenv("CI", "true")` confirme que le mode CI est activé automatiquement
-- [ ] Test passe sur ubuntu, macos et windows (matrice CI)
+**Acceptance Criteria:**
+- [ ] Test `TestHeadlessInit_FullWorkflow`: `lzctl init --tenant-id <uuid> --ci` in a tmpDir → valid generated repo
+- [ ] Repo validation: `lzctl validate` in the tmpDir → exit 0
+- [ ] Generated files verification: presence of `platform/`, `landing-zones/`, `pipelines/`, `lzctl.yaml`
+- [ ] Test runs without any prompt (stdin closed) → no blocking or panic
+- [ ] `t.Setenv("CI", "true")` confirms that CI mode is automatically enabled
+- [ ] Test passes on ubuntu, macos, and windows (CI matrix)
 
 ---
 
-**Epic 7 Total : 6 stories, 26 points**
+**Epic 7 Total: 6 stories, 26 points**
 
 ---
 
-## Mise à jour du Sprint Planning
+## Updated Sprint Planning
 
-### Nouvelles phases
+### New Phases
 
-| Phase | Epics | Durée est. | Objectif |
-|-------|-------|------------|----------|
-| **Phase 5** | E6 (Quality) | 4-5 semaines | Zéro test en échec, couverture ≥ 60 % (palier 1) → 80 % (palier 2, cible PRD), CI robuste |
-| **Phase 6** | E7 (GitOps) | 3-4 semaines | `lzctl init` headless, pipeline-ready |
+| Phase | Epics | Est. Duration | Goal |
+|-------|-------|---------------|------|
+| **Phase 5** | E6 (Quality) | 4-5 weeks | Zero failing tests, coverage ≥ 60% (tier 1) → 80% (tier 2, PRD target), robust CI |
+| **Phase 6** | E7 (GitOps) | 3-4 weeks | `lzctl init` headless, pipeline-ready |
 
-### Sprints suggérés
+### Suggested Sprints
 
 | Sprint | Stories | Points | Milestone |
 |--------|---------|--------|-----------|
-| Sprint 12 | E6-S1, E6-S2, E6-S7, E6-S8 | 12 | CI hardening + GoReleaser validé + smoke multi-OS (tôt pour éviter régressions CRLF/chemins) |
-| Sprint 13 | E6-S3, E6-S6 | 13 | Tests output généré (repo TF, pipelines, backend routing) + state-backend |
-| Sprint 14 | E6-S4, E6-S5, E6-S9 | 17 | Tests drift/rollback fixtures + seuil couverture 60 % + workflow nightly Azure |
-| Sprint 15 | E7-S1, E7-S2 | 8 | Flags non-interactifs complets + env vars |
-| Sprint 16 | E7-S3, E7-S5 | 8 | Mode --ci + guide documentation CI |
-| Sprint 17 | E7-S4, E7-S6 | 10 | Input déclaratif CI → lzctl.yaml + test E2E headless |
-| Sprint 18 | E6-S5 (palier 2) | — | Relèvement seuil couverture à 80 % (cible PRD) |
+| Sprint 12 | E6-S1, E6-S2, E6-S7, E6-S8 | 12 | CI hardening + GoReleaser validated + multi-OS smoke (early to avoid CRLF/path regressions) |
+| Sprint 13 | E6-S3, E6-S6 | 13 | Generated output tests (TF repo, pipelines, backend routing) + state-backend |
+| Sprint 14 | E6-S4, E6-S5, E6-S9 | 17 | Drift/rollback fixture tests + coverage threshold 60% + Azure nightly workflow |
+| Sprint 15 | E7-S1, E7-S2 | 8 | Complete non-interactive flags + env vars |
+| Sprint 16 | E7-S3, E7-S5 | 8 | --ci mode + CI documentation guide |
+| Sprint 17 | E7-S4, E7-S6 | 10 | Declarative CI input → lzctl.yaml + E2E headless test |
+| Sprint 18 | E6-S5 (tier 2) | — | Raise coverage threshold to 80% (PRD target) |
 
-> **Principe tests Azure live :** les tests nécessitant un tenant Azure réel (drift live, session check) sont **hors PR** — ils s'exécutent dans le workflow `integration-azure.yml` déclenché manuellement ou nightly (E6-S9). Les PR ne contiennent que des tests unitaires et des tests d'intégration sans appel réseau Azure.
+> **Azure live tests principle:** Tests requiring a real Azure tenant (live drift, session check) are **outside PRs** — they run in the `integration-azure.yml` workflow triggered manually or nightly (E6-S9). PRs only contain unit tests and integration tests without Azure network calls.
 
-### Opportunités de parallélisation
+### Parallelization Opportunities
 
 | Track A | Track B | Note |
 |---------|---------|------|
-| E6-S1 (lint pin) | E6-S2 (goreleaser check) | Indépendants, même fichier CI — merger en une PR |
-| E6-S7 (smoke multi-OS) | E6-S8 (HCLGenerator edge cases) | Indépendants |
-| E6-S3 (plan/apply/validate output) | E6-S4 (drift/rollback output) | Packages différents, même approche fixtures |
-| E7-S1 (flags init) | E7-S2 (env vars) | E7-S2 dépend de E7-S1 mais faiblement |
-| E7-S4 (input déclaratif) | E7-S5 (doc CI) | Indépendants |
+| E6-S1 (lint pin) | E6-S2 (goreleaser check) | Independent, same CI file — merge in one PR |
+| E6-S7 (multi-OS smoke) | E6-S8 (HCLGenerator edge cases) | Independent |
+| E6-S3 (plan/apply/validate output) | E6-S4 (drift/rollback output) | Different packages, same fixture approach |
+| E7-S1 (init flags) | E7-S2 (env vars) | E7-S2 depends on E7-S1 but weakly |
+| E7-S4 (declarative input) | E7-S5 (CI docs) | Independent |
 
 

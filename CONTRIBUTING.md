@@ -1,6 +1,6 @@
 # Contributing
 
-Merci de votre intérêt pour contribuer à **lzctl** !
+Thank you for your interest in contributing to **lzctl**!
 
 ## Quick Start
 
@@ -14,57 +14,62 @@ go test ./...
 
 ## Workflow
 
-1. Fork le repository
-2. Créer une branche : `git checkout -b feature/<name>`
-3. Développer avec des tests
-4. Vérifier : `make fmt && make vet && make test`
-5. Soumettre une Pull Request
+1. Fork the repository
+2. Create a branch: `git checkout -b feature/<name>`
+3. Develop with tests
+4. Verify: `make fmt && make vet && make test`
+5. Submit a Pull Request
 
 ## Standards
 
-- Code formaté avec `gofmt`
-- Tests unitaires pour toute logique dans `internal/`
-- Commandes CLI (`cmd/`) = wrappers fins — la logique vit dans `internal/`
-- Erreurs wrappées : `fmt.Errorf("context: %w", err)`
-- Pas de credentials dans le code ou les templates
+- Code formatted with `gofmt`
+- Unit tests for all logic in `internal/`
+- CLI commands (`cmd/`) = thin wrappers — logic lives in `internal/`
+- Wrapped errors: `fmt.Errorf("context: %w", err)`
+- No credentials in code or templates
 
-## Structure du projet
+## Project Structure
 
 ```
-cmd/              Commandes Cobra CLI
-internal/         Logique métier
-  applier/        Orchestration terraform apply
-  audit/          Audit de conformité CAF
-  config/         Parsing et validation de lzctl.yaml
-  doctor/         Vérification des prérequis
-  drift/          Détection de drift
-  output/         Formatage de sortie (couleurs, JSON)
+cmd/              Cobra CLI commands
+internal/         Business logic
+  audit/          CAF compliance audit
+  azauth/         Azure authentication
+  azure/          az CLI wrapper
+  bootstrap/      State backend bootstrap
+  config/         Parsing and validation of lzctl.yaml
+  doctor/         Prerequisite checks
+  exitcode/       Standardised exit codes
+  importer/       Terraform import block generation
+  oidcsetup/      OIDC federated credential setup
+  output/         Output formatting (colours, JSON)
+  planverify/     Plan verification
   policy/         Policy-as-Code lifecycle
-  state/          Gestion du lifecycle des state files
-  template/       Moteur de templates Go
-  ...
-schemas/          Schéma JSON pour lzctl.yaml
-templates/        Templates Terraform, pipelines, manifestes
-profiles/         Catalogue de profils CAF
-policies/         Définitions de policies Azure
+  state/          State file lifecycle management
+  template/       Go template engine
+  upgrade/        AVM module version checker and updater
+  wizard/         Interactive wizard (survey)
+schemas/          JSON schema for lzctl.yaml
+templates/        Terraform, pipeline, and manifest templates
+profiles/         CAF profile catalogue
 docs/             Documentation
 ```
 
 ## Tests
 
 ```bash
-go test ./...                    # Tous les tests
-go test -v ./internal/config/... # Un package avec détails
-go test -race ./...              # Avec race detection
-make test-coverage-check         # Gate de couverture locale (palier actuel: 60%)
+go test ./...                    # All tests
+go test -v ./internal/config/... # Single package with details
+go test -race ./...              # With race detection
+make test-coverage-check         # Local coverage gate (current threshold: 45%)
 ```
 
-### Politique de couverture
+### Coverage Policy
 
-- Palier actuel (CI): **45%** de couverture totale (`go test -coverprofile=coverage.out ./...`)
-- Paliers suivants: **60%** puis cible PRD **80%** après complétion des stories E6/E7
-- Les PR doivent rester au-dessus du seuil CI courant
+- Current threshold (CI): **45%** total coverage (`go test -coverprofile=coverage.out ./...`)
+- Next milestones: **60%** then PRD target **80%** after E6/E7 story completion
+- PRs must stay above the current CI threshold
 
-## Licence
+## License
 
-En contribuant, vous acceptez que vos contributions soient sous licence [Apache 2.0](LICENSE).
+By contributing, you agree that your contributions will be licensed under [Apache 2.0](LICENSE).

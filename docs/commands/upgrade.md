@@ -1,6 +1,6 @@
 # lzctl upgrade
 
-Met à jour les versions des modules Terraform vers les dernières versions disponibles.
+Update Terraform module versions to the latest available versions.
 
 ## Synopsis
 
@@ -10,56 +10,56 @@ lzctl upgrade [flags]
 
 ## Description
 
-Scanne tous les fichiers `.tf` du projet, identifie les pins de version (`version = "..."`) dans les blocs `module {}`, et vérifie les versions disponibles sur le [Terraform Registry](https://registry.terraform.io/).
+Scans all `.tf` files in the project, identifies version pins (`version = "..."`) in `module {}` blocks, and checks available versions on the [Terraform Registry](https://registry.terraform.io/).
 
-Le scan :
-1. Parcourt récursivement les `.tf` (ignore `.terraform/`, `.git/`, `node_modules/`)
-2. Extrait `source` + `version` de chaque bloc module
-3. Interroge l'API Registry (`/v1/modules/.../versions`)
-4. Compare la version locale avec la dernière version stable
-5. Affiche les upgrades disponibles (ou les applique avec `--apply`)
+The scan:
+1. Recursively walks `.tf` files (ignores `.terraform/`, `.git/`, `node_modules/`)
+2. Extracts `source` + `version` from each module block
+3. Queries the Registry API (`/v1/modules/.../versions`)
+4. Compares the local version with the latest stable version
+5. Displays available upgrades (or applies them with `--apply`)
 
-### Opérateurs de contrainte préservés
+### Constraint Operators Preserved
 
-L'updater conserve l'opérateur de contrainte :
+The updater preserves the constraint operator:
 
-| Avant | Après (`--apply`) |
-|-------|-------------------|
+| Before | After (`--apply`) |
+|--------|-------------------|
 | `version = "1.2.0"` | `version = "1.3.0"` |
 | `version = "~> 1.2.0"` | `version = "~> 1.3.0"` |
 | `version = ">= 1.2.0"` | `version = ">= 1.3.0"` |
 
 ## Flags
 
-| Flag | Défaut | Description |
-|------|--------|-------------|
-| `--apply` | `false` | Appliquer les mises à jour aux fichiers `.tf` |
-| `--module` | | Filtrer par nom de module (exact match) |
-| `--dry-run` | `false` | Afficher les changements sans modifier (identique à l'absence de `--apply`) |
-| `--json` | `false` | Sortie JSON structurée |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--apply` | `false` | Apply updates to `.tf` files |
+| `--module` | | Filter by module name (exact match) |
+| `--dry-run` | `false` | Show changes without modifying (same as omitting `--apply`) |
+| `--json` | `false` | Structured JSON output |
 
-## Exemples
+## Examples
 
 ```bash
-# Lister les upgrades disponibles
+# List available upgrades
 lzctl upgrade
 
-# Module spécifique
+# Specific module
 lzctl upgrade --module resource-org
 
-# Appliquer les mises à jour
+# Apply updates
 lzctl upgrade --apply
 
-# Sortie JSON
+# JSON output
 lzctl upgrade --json
 
-# Pipeline : check + apply
+# Pipeline: check + apply
 lzctl upgrade --json -o upgrades.json
 cat upgrades.json | jq '.upgrades | length'
 lzctl upgrade --apply
 ```
 
-## Sortie texte
+## Text Output
 
 ```
 🔍 Scanning .tf files for module version pins...
@@ -77,7 +77,7 @@ Azure/avm-ptn-alz               0.10.0    0.11.0   ⬆ upgrade
 Run 'lzctl upgrade --apply' to update.
 ```
 
-## Sortie JSON (`--json`)
+## JSON Output (`--json`)
 
 ```json
 {
@@ -110,14 +110,14 @@ Run 'lzctl upgrade --apply' to update.
 }
 ```
 
-## Compatibilité
+## Compatibility
 
-L'upgrade scanner supporte les modules publiés sur :
-- **Terraform Registry** (`registry.terraform.io`) — support complet
-- **Modules privés** — non supporté actuellement (skippés avec warning)
+The upgrade scanner supports modules published on:
+- **Terraform Registry** (`registry.terraform.io`) — full support
+- **Private modules** — not currently supported (skipped with warning)
 
-## Voir aussi
+## See Also
 
-- [`validate`](validate.md) — valider après upgrade
-- [`plan`](plan.md) — vérifier les changements liés aux nouvelles versions
-- [`doctor`](doctor.md) — vérifier les prérequis Terraform
+- [`validate`](validate.md) — validate after upgrade
+- [`plan`](plan.md) — check changes related to new versions
+- [`doctor`](doctor.md) — verify Terraform prerequisites

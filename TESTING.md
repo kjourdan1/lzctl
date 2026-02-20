@@ -1,80 +1,77 @@
 # Testing Guide
 
-## Prérequis
+## Prerequisites
 
-| Outil | Version | Usage |
-|-------|---------|-------|
-| Go | >= 1.24 | Compilation et tests |
-| Terraform | >= 1.5 | Tests d'intégration |
-| Azure CLI | >= 2.50 | Tests d'intégration Azure |
+| Tool | Version | Usage |
+|------|---------|-------|
+| Go | >= 1.24 | Build and tests |
+| Terraform | >= 1.5 | Integration tests |
+| Azure CLI | >= 2.50 | Azure integration tests |
 
 ## Build
 
 ```bash
-# Build le binaire
+# Build the binary
 go build -o bin/lzctl .
 
-# Vérifier
+# Verify
 ./bin/lzctl version
 ```
 
-## Tests unitaires
+## Unit Tests
 
 ```bash
-# Tous les tests
+# All tests
 go test ./...
 
-# Avec couverture
+# With coverage
 go test -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out
 
-# Avec sortie détaillée
+# Verbose output
 go test -v ./...
 
-# Un package spécifique
+# Specific package
 go test -v ./internal/config/...
 go test -v ./internal/audit/...
 go test -v ./internal/state/...
 go test -v ./internal/doctor/...
 
-# Un test spécifique
+# Specific test
 go test -v ./internal/config/ -run TestCrossValidate
 
-# Avec race detection
+# With race detection
 go test -race ./...
 ```
 
-## Tests par package
+## Tests by Package
 
-| Package | Fichier de test | Ce qu'il couvre |
-|---------|----------------|----------------|
-| `internal/config` | `crossvalidator_test.go`, `loader_test.go` | Validation schema, cross-checks CIDR/UUID |
-| `internal/audit` | `audit_test.go`, `renderers_test.go` | Règles de conformité CAF, renderers MD/JSON |
-| `internal/doctor` | `checks_test.go` | Vérification terraform, az, git, state backend |
+| Package | Test File | What It Covers |
+|---------|-----------|----------------|
+| `internal/config` | `crossvalidator_test.go`, `loader_test.go` | Schema validation, cross-checks CIDR/UUID |
+| `internal/audit` | `audit_test.go`, `renderers_test.go` | CAF compliance rules, MD/JSON renderers |
+| `internal/doctor` | `checks_test.go` | terraform, az, git, state backend checks |
 | `internal/state` | `state_test.go` | List, snapshot, health check, manager |
-| `internal/drift` | `drift_test.go` | Détection de drift |
-| `internal/applier` | `applier_test.go` | Orchestration plan/apply |
-| `internal/rollback` | `rollback_test.go` | Rollback multi-couche |
-| `internal/validate` | `validate_test.go` | Validation schema JSON |
-| `internal/template` | `engine_test.go`, `pipeline_updater_test.go` | Rendu templates |
-| `internal/upgrade` | `registry_test.go`, `updater_test.go` | Upgrade de modules AVM |
-| `internal/importer` | `hcl_generator_test.go` | Génération import blocks |
-| `cmd/` | `cmd_test.go`, `rollback_test.go`, `local_ops_test.go` | Commandes CLI |
+| `internal/template` | `engine_test.go`, `pipeline_updater_test.go` | Template rendering |
+| `internal/upgrade` | `registry_test.go`, `updater_test.go` | AVM module upgrades |
+| `internal/importer` | `hcl_generator_test.go` | Import block generation |
+| `internal/policy` | `policy_test.go` | Policy-as-Code lifecycle |
+| `cmd/` | `cmd_test.go`, `rollback_test.go`, `local_ops_test.go` | CLI commands |
 
-## Tests d'intégration
+## Integration Tests
 
 ```bash
-# Tests d'intégration (nécessitent un environnement Azure)
+# Integration tests (require an Azure environment)
 go test -v ./test/integration/...
 
-# Tests de rendu de templates
+# Template rendering tests
 go test -v ./test/integration/ -run TestTemplateRender
 
-# Tests brownfield
+# Brownfield tests
 go test -v ./test/integration/ -run TestBrownfield
 ```
 
-## Smoke test local
+## Local Smoke Test
 
 ```bash
 # Build
@@ -92,19 +89,20 @@ go build -o bin/lzctl .
 # Schema export
 ./bin/lzctl schema export
 
-# State health (nécessite Azure)
+# State health (requires Azure)
 ./bin/lzctl state health
 ```
 
 ## Makefile
 
 ```bash
-make build        # Build le binaire
-make test         # Tests unitaires
-make test-verbose # Tests avec détails
-make fmt          # Formater le code
-make vet          # Analyse statique
-make lint         # Linter (golangci-lint)
-make cover        # Couverture de tests
-make clean        # Nettoyer les artefacts
+make build              # Build the binary
+make test               # Unit tests
+make test-verbose       # Tests with details
+make fmt                # Format code
+make vet                # Static analysis
+make lint               # Linter (golangci-lint)
+make test-coverage      # Test coverage report
+make test-coverage-check # Coverage gate (threshold: 45%)
+make clean              # Clean build artefacts
 ```

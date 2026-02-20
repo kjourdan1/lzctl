@@ -1,6 +1,6 @@
 # lzctl audit
 
-Audit de conformité CAF d'un tenant Azure.
+CAF compliance audit of an Azure tenant.
 
 ## Synopsis
 
@@ -10,7 +10,7 @@ lzctl audit [flags]
 
 ## Description
 
-Scanne les ressources Azure du tenant et évalue la conformité par rapport aux 6 disciplines CAF :
+Scans Azure tenant resources and evaluates compliance against the 6 CAF disciplines:
 - **Resource Organisation** — management groups, subscriptions
 - **Identity & Access** — RBAC, privileged roles
 - **Management** — Log Analytics, diagnostics
@@ -18,16 +18,16 @@ Scanne les ressources Azure du tenant et évalue la conformité par rapport aux 
 - **Connectivity** — VNets, peering, DNS
 - **Security** — Defender for Cloud, encryption
 
-Produit un rapport avec un score global et des findings détaillés.
+Produces a report with an overall score and detailed findings.
 
 ## Flags
 
-| Flag | Défaut | Description |
-|------|--------|-------------|
+| Flag | Default | Description |
+|------|---------|-------------|
 | `--scope` | tenant root | Management group scope |
-| `--output` | stdout | Chemin du fichier de sortie |
+| `--output` | stdout | Output file path |
 
-## Sortie
+## Output
 
 ```
 ═══ CAF Compliance Audit ═══
@@ -44,23 +44,23 @@ Score: 72/100
 12 findings (3 critical, 5 high, 4 medium)
 ```
 
-## Exemples
+## Examples
 
 ```bash
-# Audit du tenant complet
+# Full tenant audit
 lzctl audit
 
-# Audit d'un scope spécifique
+# Audit a specific scope
 lzctl audit --scope mg-platform
 
-# Enregistrer dans un fichier
+# Save to a file
 lzctl audit --output audit-report.md
 
 # JSON
 lzctl audit --json --output audit-report.json
 ```
 
-## Voir aussi
+## See Also
 
-- [import](import.md) — importer des ressources depuis le rapport
-- [assess](assess.md) — évaluation de la maturité
+- [import](import.md) — import resources from the report
+- [assess](assess.md) — maturity assessment

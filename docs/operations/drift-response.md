@@ -1,75 +1,75 @@
 # Drift Response
 
-Procédure de réponse quand du drift d'infrastructure est détecté.
+Response procedure when infrastructure drift is detected.
 
-## Détection
+## Detection
 
-Le drift est détecté via :
-- `lzctl drift` — scan local à la demande
-- Pipeline CI/CD planifié (hebdomadaire) — crée automatiquement une issue/work item
+Drift is detected via:
+- `lzctl drift` — on-demand local scan
+- Scheduled CI/CD pipeline (weekly) — automatically creates an issue/work item
 
 ## Classification
 
 | Type | Description | Action |
 |------|-------------|--------|
-| **Ajout** | Ressource créée hors Terraform | Importer ou supprimer |
-| **Modification** | Attribut modifié manuellement | Corriger en code ou reverter |
-| **Suppression** | Ressource supprimée manuellement | Re-déployer ou mettre à jour le code |
+| **Addition** | Resource created outside Terraform | Import or delete |
+| **Modification** | Attribute manually changed | Fix in code or revert |
+| **Deletion** | Resource manually deleted | Redeploy or update the code |
 
-## Procédure
+## Procedure
 
-### 1. Identifier le drift
+### 1. Identify the Drift
 
 ```bash
-# Scan complet
+# Full scan
 lzctl drift
 
-# Scan d'une couche spécifique
+# Scan a specific layer
 lzctl drift --layer connectivity
 
-# Sortie JSON pour analyse
+# JSON output for analysis
 lzctl drift --json
 ```
 
-### 2. Analyser
+### 2. Analyze
 
-- Vérifier si le changement est intentionnel (maintenance, incident)
-- Identifier la couche et les ressources impactées
-- Évaluer l'impact (blast radius)
+- Check whether the change was intentional (maintenance, incident)
+- Identify the affected layer and resources
+- Assess the impact (blast radius)
 
-### 3. Résoudre
+### 3. Resolve
 
-**Option A — Aligner le code sur le réel :**
+**Option A — Align code with reality:**
 ```bash
-# Mettre à jour la configuration Terraform
-# Puis valider
+# Update the Terraform configuration
+# Then validate
 lzctl validate
-lzctl plan --layer <couche>
+lzctl plan --layer <layer>
 ```
 
-**Option B — Revenir à l'état déclaré :**
+**Option B — Revert to the declared state:**
 ```bash
-# Re-appliquer la configuration Terraform
-lzctl apply --layer <couche>
+# Re-apply the Terraform configuration
+lzctl apply --layer <layer>
 ```
 
-**Option C — Importer la ressource :**
+**Option C — Import the resource:**
 ```bash
-# Si une ressource a été ajoutée manuellement
-lzctl import --resource-group <rg> --layer <couche>
+# If a resource was added manually
+lzctl import --resource-group <rg> --layer <layer>
 ```
 
-### 4. Prévenir
+### 4. Prevent
 
-- Activer les Azure Policy `Deny` pour empêcher les modifications manuelles
-- Restreindre les droits d'écriture directe via RBAC
-- Documenter la résolution dans l'issue/work item
+- Enable Azure Policy `Deny` to prevent manual modifications
+- Restrict direct write permissions via RBAC
+- Document the resolution in the issue/work item
 
 ## Escalation
 
-| Severity | Critère | SLA |
-|----------|---------|-----|
-| Critical | Drift sur management-groups ou identity | 4h |
-| High | Drift sur connectivity ou governance | 24h |
-| Medium | Drift sur management | 72h |
-| Low | Drift sur landing-zones | Sprint suivant |
+| Severity | Criteria | SLA |
+|----------|----------|-----|
+| Critical | Drift on management-groups or identity | 4h |
+| High | Drift on connectivity or governance | 24h |
+| Medium | Drift on management | 72h |
+| Low | Drift on landing-zones | Next sprint |

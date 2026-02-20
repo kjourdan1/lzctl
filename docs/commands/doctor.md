@@ -1,6 +1,6 @@
 # lzctl doctor
 
-Vérifie les prérequis et la santé de l'environnement.
+Check prerequisites and environment health.
 
 ## Synopsis
 
@@ -10,32 +10,32 @@ lzctl doctor
 
 ## Description
 
-Vérifie la présence et la version des outils nécessaires au fonctionnement de lzctl :
+Checks the presence and version of tools required by lzctl:
 
-### Outils vérifiés
+### Checked Tools
 
-| Outil | Version min | Obligatoire |
-|-------|-------------|-------------|
+| Tool | Min Version | Required |
+|------|-------------|----------|
 | Terraform | >= 1.5 | ✅ |
 | Azure CLI | >= 2.50 | ✅ |
 | Git | >= 2.30 | ✅ |
-| GitHub CLI | any | ❌ optionnel |
+| GitHub CLI | any | ❌ optional |
 
-### Vérifications Azure
-
-| Check | Description |
-|-------|-------------|
-| Session Azure | `az account show` retourne une session valide |
-| Accès management groups | Accès en lecture au root management group |
-| Resource providers | `Microsoft.Management`, `Microsoft.Authorization`, `Microsoft.Network`, `Microsoft.ManagedIdentity` enregistrés |
-
-### Vérification du state backend
+### Azure Checks
 
 | Check | Description |
 |-------|-------------|
-| Storage account accessible | Le storage account tagué `purpose=terraform-state` est accessible |
+| Azure session | `az account show` returns a valid session |
+| Management group access | Read access to the root management group |
+| Resource providers | `Microsoft.Management`, `Microsoft.Authorization`, `Microsoft.Network`, `Microsoft.ManagedIdentity` registered |
 
-## Sortie
+### State Backend Check
+
+| Check | Description |
+|-------|-------------|
+| Storage account accessible | Storage account tagged `purpose=terraform-state` is accessible |
+
+## Output
 
 ```
 ═══ lzctl doctor ═══
@@ -60,14 +60,14 @@ State Backend:
   ✅  Storage account accessible
 ```
 
-## Exit codes
+## Exit Codes
 
-| Code | Signification |
-|------|---------------|
-| 0 | Tous les checks critiques passent |
-| 1 | Un ou plusieurs checks critiques échouent |
+| Code | Meaning |
+|------|---------|
+| 0 | All critical checks pass |
+| 1 | One or more critical checks fail |
 
-## Voir aussi
+## See Also
 
-- [init](init.md) — lancer doctor avant init
-- [state health](../operations/state-management.md) — vérification détaillée du state backend
+- [init](init.md) — run doctor before init
+- [state health](../operations/state-management.md) — detailed state backend verification

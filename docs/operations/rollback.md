@@ -1,50 +1,50 @@
 # Rollback
 
-Procédures de rollback pour les couches plateforme.
+Rollback procedures for platform layers.
 
-## Principe
+## Principle
 
-Le rollback s'effectue en **ordre inverse CAF** :
-1. `connectivity` (en premier — dépendances en aval)
+Rollback is performed in **reverse CAF order**:
+1. `connectivity` (first — downstream dependencies)
 2. `governance`
 3. `management`
 4. `identity`
-5. `management-groups` (en dernier — fundation)
+5. `management-groups` (last — foundation)
 
-Chaque couche a son propre state file, ce qui limite le blast radius.
+Each layer has its own state file, which limits the blast radius.
 
 ## Rollback via lzctl
 
-### Rollback complet
+### Full Rollback
 
 ```bash
-# Prévisualiser
+# Preview
 lzctl rollback --dry-run
 
-# Exécuter (avec confirmation)
+# Execute (with confirmation)
 lzctl rollback
 
-# Sans confirmation (CI)
+# Without confirmation (CI)
 lzctl rollback --auto-approve
 ```
 
-### Rollback d'une couche spécifique
+### Rollback a Specific Layer
 
 ```bash
 lzctl rollback --layer connectivity
 ```
 
-## Rollback via state snapshot
+## Rollback via State Snapshot
 
-Si un apply a corrompu l'état, restaurer depuis un snapshot :
+If an apply has corrupted the state, restore from a snapshot:
 
-### 1. Lister les snapshots disponibles
+### 1. List Available Snapshots
 
 ```bash
 lzctl state list
 ```
 
-### 2. Identifier le snapshot à restaurer
+### 2. Identify the Snapshot to Restore
 
 ```bash
 # Via Azure CLI
@@ -56,7 +56,7 @@ az storage blob list \
   --output table
 ```
 
-### 3. Restaurer le snapshot
+### 3. Restore the Snapshot
 
 ```bash
 az storage blob copy start \
@@ -67,25 +67,25 @@ az storage blob copy start \
   --auth-mode login
 ```
 
-### 4. Vérifier
+### 4. Verify
 
 ```bash
 lzctl plan --layer connectivity
 ```
 
-## Rollback d'urgence
+## Emergency Rollback
 
-En cas d'incident critique :
+In case of a critical incident:
 
-1. **Snapshot immédiat** : `lzctl state snapshot --all --tag "pre-emergency"`
-2. **Identifier la couche** : `lzctl drift`
-3. **Rollback ciblé** : `lzctl rollback --layer <couche> --auto-approve`
-4. **Vérifier** : `lzctl plan` (doit montrer zéro changement)
-5. **Post-mortem** : documenter l'incident et les actions correctives
+1. **Immediate snapshot**: `lzctl state snapshot --all --tag "pre-emergency"`
+2. **Identify the layer**: `lzctl drift`
+3. **Targeted rollback**: `lzctl rollback --layer <layer> --auto-approve`
+4. **Verify**: `lzctl plan` (should show zero changes)
+5. **Post-mortem**: document the incident and corrective actions
 
-## Prévention
+## Prevention
 
-- Toujours exécuter `lzctl plan` avant `lzctl apply`
-- Utiliser les pipelines CI/CD avec review (PR) pour les changements
-- Activer le blob versioning et soft delete sur le state backend
-- Vérifier avec `lzctl state health`
+- Always run `lzctl plan` before `lzctl apply`
+- Use CI/CD pipelines with review (PR) for changes
+- Enable blob versioning and soft delete on the state backend
+- Verify with `lzctl state health`

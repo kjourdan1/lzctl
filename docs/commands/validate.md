@@ -1,6 +1,6 @@
 # lzctl validate
 
-Validation multi-couche du manifeste et de la configuration Terraform.
+Multi-layer validation of the manifest and Terraform configuration.
 
 ## Synopsis
 
@@ -10,23 +10,23 @@ lzctl validate [flags]
 
 ## Description
 
-Exécute trois niveaux de validation :
+Runs three levels of validation:
 
-1. **Schema JSON** — Valide `lzctl.yaml` contre le schéma embarqué
-2. **Cross-validation** — Vérifie les règles inter-champs :
-   - Format UUID (tenant, subscription, state backend)
-   - Chevauchements CIDR (hub vs spokes)
-   - Longueur du nom du storage account (3-24 caractères)
-   - State versioning et soft delete activés
-3. **Terraform validate** — Exécute `terraform validate` sur chaque couche
+1. **JSON Schema** — Validates `lzctl.yaml` against the embedded schema
+2. **Cross-validation** — Checks cross-field rules:
+   - UUID format (tenant, subscription, state backend)
+   - CIDR overlaps (hub vs spokes)
+   - Storage account name length (3-24 characters)
+   - State versioning and soft delete enabled
+3. **Terraform validate** — Runs `terraform validate` on each layer
 
 ## Flags
 
-| Flag | Défaut | Description |
-|------|--------|-------------|
-| `--strict` | `false` | Traiter les warnings comme des erreurs |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--strict` | `false` | Treat warnings as errors |
 
-## Sortie
+## Output
 
 ```
 ✅ Schema validation passed
@@ -36,19 +36,19 @@ Exécute trois niveaux de validation :
 ✅ Terraform validate: connectivity — ok
 ```
 
-## Exit codes
+## Exit Codes
 
-| Code | Signification |
-|------|---------------|
-| 0 | Tout valide |
-| 1 | Erreurs de validation |
+| Code | Meaning |
+|------|---------|
+| 0 | All valid |
+| 1 | Validation errors |
 
-En mode `--strict`, les warnings déclenchent aussi un exit code non-zero.
+In `--strict` mode, warnings also trigger a non-zero exit code.
 
-## Exemples
+## Examples
 
 ```bash
-# Validation standard
+# Standard validation
 lzctl validate
 
 # Strict (CI)
@@ -58,7 +58,7 @@ lzctl validate --strict
 lzctl validate --json
 ```
 
-## Voir aussi
+## See Also
 
-- [schema](schema.md) — exporter le schéma JSON
-- [init](init.md) — valider après initialisation
+- [schema](schema.md) — export the JSON schema
+- [init](init.md) — validate after initialisation

@@ -1,23 +1,23 @@
 # CI Headless (GitOps)
 
-Guide d'exécution de lzctl sans interaction terminale (pipeline CI).
+Guide for running lzctl without terminal interaction (CI pipeline).
 
-## Objectif
+## Objective
 
-Exécuter le flux suivant sans prompt:
+Execute the following flow without any prompt:
 
 1. `init --ci`
 2. `validate`
 3. `plan`
-4. `apply --auto-approve` (selon politique)
+4. `apply --auto-approve` (depending on policy)
 
-## Pré-requis
+## Prerequisites
 
-- Auth Azure non-interactive (OIDC recommandé)
-- Variables CI standards (`CI=true`)
-- Input déclaratif one-shot (`lzctl-init-input.yaml`) ou flags/env `LZCTL_*`
+- Non-interactive Azure auth (OIDC recommended)
+- Standard CI variables (`CI=true`)
+- Declarative one-shot input (`lzctl-init-input.yaml`) or flags/env `LZCTL_*`
 
-## Variables utiles
+## Useful Variables
 
 - `LZCTL_TENANT_ID`
 - `LZCTL_SUBSCRIPTION_ID`
@@ -30,7 +30,7 @@ Exécuter le flux suivant sans prompt:
 - `LZCTL_CICD_PLATFORM`
 - `LZCTL_STATE_STRATEGY`
 
-## Exemple recommandé
+## Recommended Example
 
 ```bash
 export CI=true
@@ -44,24 +44,24 @@ lzctl validate --repo-root .
 lzctl plan --repo-root .
 ```
 
-## Règles mode CI
+## CI Mode Rules
 
-- `init` en CI exige `--tenant-id` (ou `LZCTL_TENANT_ID`) sauf si `--from-file` est fourni.
-- `apply` en CI exige `--auto-approve` (hors `--dry-run`).
-- `rollback` en CI exige `--auto-approve` (hors `--dry-run`).
-- `import` en CI interdit le wizard: fournir `--from`, `--subscription` ou `--resource-group`.
+- `init` in CI requires `--tenant-id` (or `LZCTL_TENANT_ID`) unless `--from-file` is provided.
+- `apply` in CI requires `--auto-approve` (except with `--dry-run`).
+- `rollback` in CI requires `--auto-approve` (except with `--dry-run`).
+- `import` in CI forbids the wizard: provide `--from`, `--subscription`, or `--resource-group`.
 
 ## Troubleshooting
 
-- Erreur `--ci mode requires --tenant-id`:
-  - Ajouter `--tenant-id` ou `LZCTL_TENANT_ID`, ou utiliser `--from-file`.
-- Erreur `--ci mode requires --auto-approve for apply`:
-  - Ajouter `--auto-approve` ou passer en `--dry-run`.
-- Erreur import source en CI:
-  - Ajouter `--from audit-report.json` ou `--subscription`.
+- Error `--ci mode requires --tenant-id`:
+  - Add `--tenant-id` or `LZCTL_TENANT_ID`, or use `--from-file`.
+- Error `--ci mode requires --auto-approve for apply`:
+  - Add `--auto-approve` or switch to `--dry-run`.
+- Error import source in CI:
+  - Add `--from audit-report.json` or `--subscription`.
 
-## Exemples pipeline
+## Pipeline Examples
 
 - GitHub Actions: [github-actions-onboarding.yml](../examples/pipeline-init/github-actions-onboarding.yml)
 - Azure DevOps: [azure-devops-onboarding.yml](../examples/pipeline-init/azure-devops-onboarding.yml)
-- Input one-shot: [lzctl-init-input.yaml](../examples/pipeline-init/lzctl-init-input.yaml)
+- One-shot input: [lzctl-init-input.yaml](../examples/pipeline-init/lzctl-init-input.yaml)

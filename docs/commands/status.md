@@ -1,6 +1,6 @@
 # lzctl status
 
-Affiche un aperçu de l'état du projet landing zone.
+Display an overview of the landing zone project status.
 
 ## Synopsis
 
@@ -10,19 +10,19 @@ lzctl status [flags]
 
 ## Description
 
-Lit `lzctl.yaml` et affiche :
-- Métadonnées du projet (nom, tenant, région)
-- Couches plateforme activées et leur état
-- Landing zones configurées
-- Informations Git (branche, dernier commit)
+Reads `lzctl.yaml` and displays:
+- Project metadata (name, tenant, region)
+- Enabled platform layers and their state
+- Configured landing zones
+- Git information (branch, last commit)
 
 ## Flags
 
-| Flag | Défaut | Description |
-|------|--------|-------------|
-| `--live` | `false` | Interroger Azure pour vérifier l'état réel |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--live` | `false` | Query Azure to check actual state |
 
-## Sortie
+## Output
 
 ```
 Project: contoso-platform
@@ -45,20 +45,20 @@ Landing Zones: 2
 Git: main (abc1234) — 2026-02-19
 ```
 
-## Exemples
+## Examples
 
 ```bash
-# Status local
+# Local status
 lzctl status
 
-# Status live (requiert Azure)
+# Live status (requires Azure)
 lzctl status --live
 
 # JSON
 lzctl status --json
 ```
 
-## Voir aussi
+## See Also
 
-- [drift](drift.md) — détecter les changements
-- [doctor](doctor.md) — vérifier l'environnement
+- [drift](drift.md) — detect changes
+- [doctor](doctor.md) — check the environment

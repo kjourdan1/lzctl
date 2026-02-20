@@ -1,73 +1,73 @@
 # Policy Incident Response
 
-Procédure de réponse quand une Azure Policy bloque un déploiement ou génère des alertes de non-conformité.
+Response procedure when an Azure Policy blocks a deployment or generates non-compliance alerts.
 
-## Types d'incidents
+## Incident Types
 
-| Type | Description | Urgence |
+| Type | Description | Urgency |
 |------|-------------|---------|
-| **Blocking** | Une policy `Deny` bloque un déploiement légitime | Haute |
-| **Non-compliance** | Des ressources existantes ne respectent pas une policy | Moyenne |
-| **False positive** | Une policy signale à tort une non-conformité | Basse |
+| **Blocking** | A `Deny` policy blocks a legitimate deployment | High |
+| **Non-compliance** | Existing resources do not comply with a policy | Medium |
+| **False positive** | A policy incorrectly reports non-compliance | Low |
 
-## Procédure — Policy bloquante
+## Procedure — Blocking Policy
 
-### 1. Identifier la policy
+### 1. Identify the Policy
 
 ```bash
-# Voir l'état des policies
+# View policy status
 lzctl policy status
 
-# Comparer local vs déployé
+# Compare local vs deployed
 lzctl policy diff
 ```
 
-### 2. Créer une exemption temporaire
+### 2. Create a Temporary Exemption
 
 ```bash
-# Scaffolder une exemption
+# Scaffold an exemption
 lzctl policy create --type exemption --name "temp-deploy-fix"
 ```
 
-L'exemption est créée dans `policies/exemptions/` avec une date d'expiration obligatoire.
+The exemption is created in `policies/exemptions/` with a mandatory expiration date.
 
-### 3. Résoudre
+### 3. Resolve
 
-- **Si la policy est correcte** : modifier le code Terraform pour être conforme
-- **Si la policy est trop restrictive** : ajuster la définition de policy
-- **Si c'est un faux positif** : créer un report upstream
+- **If the policy is correct**: modify the Terraform code to comply
+- **If the policy is too restrictive**: adjust the policy definition
+- **If it's a false positive**: create an upstream report
 
-### 4. Retirer l'exemption
+### 4. Remove the Exemption
 
-Après résolution, supprimer l'exemption et redéployer :
+After resolution, delete the exemption and redeploy:
 
 ```bash
 lzctl policy deploy
 lzctl policy verify
 ```
 
-## Procédure — Non-conformité
+## Procedure — Non-Compliance
 
-### 1. Générer le rapport de conformité
+### 1. Generate the Compliance Report
 
 ```bash
 lzctl policy verify
 ```
 
-### 2. Créer des tâches de remédiation
+### 2. Create Remediation Tasks
 
 ```bash
 lzctl policy remediate
 ```
 
-### 3. Vérifier la résolution
+### 3. Verify the Resolution
 
 ```bash
 lzctl audit
 ```
 
-## Prévention
+## Prevention
 
-- Toujours tester les policies en mode audit d'abord : `lzctl policy test`
-- Utiliser `lzctl policy verify` avant de passer en enforcement
-- Documenter les exemptions avec une justification et une date d'expiration
+- Always test policies in audit mode first: `lzctl policy test`
+- Use `lzctl policy verify` before switching to enforcement
+- Document exemptions with a justification and an expiration date

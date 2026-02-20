@@ -2,91 +2,91 @@
 
 > Version: 1.0 | Date: 2026-02-16
 
-## Résumé
+## Summary
 
-**lzctl** est un outil CLI open-source (Go, binaire unique) qui bootstrap et maintient des Azure Landing Zones alignées avec le Cloud Adoption Framework (CAF).
+**lzctl** is an open-source CLI tool (Go, single binary) that bootstraps and maintains Azure Landing Zones aligned with the Cloud Adoption Framework (CAF).
 
-Il génère des repositories Terraform production-ready utilisant des Azure Verified Modules (AVM), connectés à des pipelines CI/CD (GitHub Actions ou Azure DevOps), suivant un workflow GitOps où les PR déclenchent des plans et les merges déclenchent des déploiements.
+It generates production-ready Terraform repositories using Azure Verified Modules (AVM), connected to CI/CD pipelines (GitHub Actions or Azure DevOps), following a GitOps workflow where PRs trigger plans and merges trigger deployments.
 
-## Problème
+## Problem
 
-Les équipes plateforme Azure font face à :
-- **Setup ad-hoc** — chaque tenant a une configuration Terraform unique, non-standardisée
-- **Policies manuelles** — appliquées via le portail, sans versioning ni review
-- **Pas de visibilité** — personne ne sait ce qui est réellement déployé vs en code
-- **Pas de CI/CD plateforme** — les changements passent directement en production
-- **Brownfield risqué** — les environnements existants sont trop risqués à terraformiser
+Azure platform teams face:
+- **Ad-hoc setup** — each tenant has a unique, non-standardized Terraform configuration
+- **Manual policies** — applied via the portal, without versioning or review
+- **No visibility** — nobody knows what is actually deployed vs in code
+- **No platform CI/CD** — changes go directly to production
+- **Risky brownfield** — existing environments are too risky to terraformize
 
 ## Solution
 
-lzctl ajoute la **couche d'orchestration manquante** au-dessus du chemin recommandé par Microsoft :
+lzctl adds the **missing orchestration layer** on top of the Microsoft-recommended path:
 
-1. **Scaffolding** — un wizard interactif génère un repository Terraform complet
-2. **Validation** — schéma JSON, cross-validation CIDR/UUID, terraform validate
-3. **Orchestration** — plan/apply multi-couche en ordre de dépendance CAF
+1. **Scaffolding** — an interactive wizard generates a complete Terraform repository
+2. **Validation** — JSON schema, CIDR/UUID cross-validation, terraform validate
+3. **Orchestration** — multi-layer plan/apply in CAF dependency order
 4. **Day-2 Ops** — drift detection, module upgrade, policy lifecycle, state management
-5. **Brownfield** — audit CAF, import progressif de ressources existantes
+5. **Brownfield** — CAF audit, progressive import of existing resources
 
 ## Architecture
 
 ```
-lzctl (binaire Go)
-    ↓ génère
+lzctl (Go binary)
+    ↓ generates
 lzctl.yaml → Terraform (AVM) → Azure Landing Zone
-    ↓ orchestre
+    ↓ orchestrates
 CI/CD (GitHub Actions / Azure DevOps)
 ```
 
-### Couches CAF (ordre de déploiement)
+### CAF Layers (deployment order)
 
 1. `management-groups` — Resource Organisation
 2. `identity` — Identity & Access
 3. `management` — Management & Monitoring
 4. `governance` — Azure Policies
-5. `connectivity` — Hub-Spoke ou vWAN
+5. `connectivity` — Hub-Spoke or vWAN
 
-### Principes
+### Principles
 
-| Principe | Description |
-|----------|-------------|
-| Stateless | Pas d'état local — tout dans lzctl.yaml + Git + Terraform state |
-| Terraform natif | Code généré fonctionne sans lzctl |
+| Principle | Description |
+|-----------|-------------|
+| Stateless | No local state — everything in lzctl.yaml + Git + Terraform state |
+| Native Terraform | Generated code works without lzctl |
 | GitOps | PR = review + plan, merge = apply |
 | State as First-Class | Versioning, soft delete, health checks |
 
-## Audience cible
+## Target Audience
 
-- Équipes plateforme Azure (Cloud Engineers, Platform Engineers)
-- Consultants déployant des landing zones pour leurs clients
-- Organisations adoptant le Cloud Adoption Framework
+- Azure platform teams (Cloud Engineers, Platform Engineers)
+- Consultants deploying landing zones for their clients
+- Organizations adopting the Cloud Adoption Framework
 
-## Différenciation
+## Differentiation
 
 | Feature | lzctl | ALZ Terraform Module | Manual Terraform |
 |---------|-------|---------------------|------------------|
-| Scaffolding interactif | ✅ | ❌ | ❌ |
-| Validation cross-field | ✅ | ❌ | ❌ |
-| Drift detection | ✅ | ❌ | Manuel |
-| Module upgrade | ✅ | ❌ | Manuel |
+| Interactive scaffolding | ✅ | ❌ | ❌ |
+| Cross-field validation | ✅ | ❌ | ❌ |
+| Drift detection | ✅ | ❌ | Manual |
+| Module upgrade | ✅ | ❌ | Manual |
 | Policy-as-Code lifecycle | ✅ | ❌ | ❌ |
 | State lifecycle management | ✅ | ❌ | ❌ |
-| Brownfield import | ✅ | ❌ | Manuel |
-| CI/CD generation | ✅ | ❌ | Manuel |
+| Brownfield import | ✅ | ❌ | Manual |
+| CI/CD generation | ✅ | ❌ | Manual |
 
-## Stack technique
+## Technical Stack
 
-| Composant | Technologie |
-|-----------|-------------|
-| Langage | Go 1.24 |
+| Component | Technology |
+|-----------|------------|
+| Language | Go 1.24 |
 | CLI framework | Cobra + Viper |
 | IaC | Terraform >= 1.5 |
 | Modules | Azure Verified Modules (AVM) |
 | Auth | Azure CLI + Workload Identity Federation |
 | State | Azure Storage (versioning, soft delete, blob lease locking) |
-| CI/CD | GitHub Actions ou Azure DevOps |
+| CI/CD | GitHub Actions or Azure DevOps |
 | Templates | Go text/template (embed.FS) |
-| Validation | JSON Schema (embarqué) |
+| Validation | JSON Schema (embedded) |
 
-## Licence
+## License
 
 Apache License 2.0

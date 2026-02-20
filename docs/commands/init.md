@@ -1,6 +1,6 @@
 # lzctl init
 
-Initialise un nouveau projet landing zone.
+Initialise a new landing zone project.
 
 ## Synopsis
 
@@ -10,50 +10,50 @@ lzctl init [flags]
 
 ## Description
 
-Lance un wizard interactif qui collecte :
-1. Nom du projet
-2. Tenant ID Azure
-3. Plateforme CI/CD (GitHub Actions / Azure DevOps)
-4. Modèle de management groups (CAF Standard / CAF Lite)
-5. Modèle de connectivité (Hub & Spoke / vWAN / None)
-6. Région primaire (et optionnellement secondaire)
-7. Configuration du state backend
+Runs an interactive wizard that collects:
+1. Project name
+2. Azure Tenant ID
+3. CI/CD platform (GitHub Actions / Azure DevOps)
+4. Management group model (CAF Standard / CAF Lite)
+5. Connectivity model (Hub & Spoke / vWAN / None)
+6. Primary region (and optionally secondary)
+7. State backend configuration
 
-Génère ensuite :
-- `lzctl.yaml` — manifeste déclaratif (source de vérité)
-- `platform/` — couches Terraform (management-groups, identity, management, governance, connectivity)
-- `landing-zones/` — stubs pour les workloads
-- `pipelines/` — fichiers CI/CD adaptés à la plateforme choisie
-- `backend.hcl` — configuration du state backend
+Then generates:
+- `lzctl.yaml` — declarative manifest (source of truth)
+- `platform/` — Terraform layers (management-groups, identity, management, governance, connectivity)
+- `landing-zones/` — workload stubs
+- `pipelines/` — CI/CD files adapted to the chosen platform
+- `backend.hcl` — state backend configuration
 - `.gitignore`, `README.md`
 
-Si `--config` est fourni, charge la configuration depuis le fichier YAML et skip le wizard.
+If `--config` is provided, loads configuration from the YAML file and skips the wizard.
 
-`--from-file` permet de fournir un input déclaratif transitoire (`lzctl-init-input.yaml`) converti en `lzctl.yaml` complet lors de l'init.
+`--from-file` allows providing a transient declarative input (`lzctl-init-input.yaml`) converted to a full `lzctl.yaml` during init.
 
-En mode non-interactif, `init` peut aussi être piloté par flags ou variables d'environnement (`LZCTL_*`) avec priorité : **flag > env > défaut**.
+In non-interactive mode, `init` can also be driven by flags or environment variables (`LZCTL_*`) with priority: **flag > env > default**.
 
 ## Flags
 
-| Flag | Défaut | Description |
-|------|--------|-------------|
-| `--tenant-id` | auto-détecté | Azure AD tenant ID |
-| `--subscription-id` | auto-détecté | Azure Subscription ID |
-| `--from-file` | | Input one-shot à convertir en `lzctl.yaml` |
-| `--project-name` | `landing-zone` | Nom du projet |
-| `--mg-model` | `caf-standard` | Modèle MG (`caf-standard` \| `caf-lite`) |
-| `--connectivity` | `hub-spoke` | Modèle connectivité (`hub-spoke` \| `vwan` \| `none`) |
-| `--identity` | `workload-identity-federation` | Modèle identité (`workload-identity-federation` \| `sp-federated` \| `sp-secret`) |
-| `--primary-region` | `westeurope` | Région primaire |
-| `--secondary-region` | vide | Région secondaire optionnelle |
-| `--cicd-platform` | `github-actions` | Plateforme CI/CD (`github-actions` \| `azure-devops`) |
-| `--state-strategy` | `create-new` | Stratégie backend (`create-new` \| `existing` \| `terraform-cloud`) |
-| `--force` | `false` | Écraser les fichiers existants |
-| `--no-bootstrap` | `false` | Ne pas provisionner le state backend |
-| `--ci` | `false` | Mode strict non-interactif (échec si paramètre requis absent) |
-| `--config` | global | Charger depuis un fichier (mode non-interactif) |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--tenant-id` | auto-detected | Azure AD tenant ID |
+| `--subscription-id` | auto-detected | Azure Subscription ID |
+| `--from-file` | | One-shot input to convert to `lzctl.yaml` |
+| `--project-name` | `landing-zone` | Project name |
+| `--mg-model` | `caf-standard` | MG model (`caf-standard` \| `caf-lite`) |
+| `--connectivity` | `hub-spoke` | Connectivity model (`hub-spoke` \| `vwan` \| `none`) |
+| `--identity` | `workload-identity-federation` | Identity model (`workload-identity-federation` \| `sp-federated` \| `sp-secret`) |
+| `--primary-region` | `westeurope` | Primary region |
+| `--secondary-region` | empty | Optional secondary region |
+| `--cicd-platform` | `github-actions` | CI/CD platform (`github-actions` \| `azure-devops`) |
+| `--state-strategy` | `create-new` | Backend strategy (`create-new` \| `existing` \| `terraform-cloud`) |
+| `--force` | `false` | Overwrite existing files |
+| `--no-bootstrap` | `false` | Skip state backend provisioning |
+| `--ci` | `false` | Strict non-interactive mode (fails if required parameter is missing) |
+| `--config` | global | Load from a file (non-interactive mode) |
 
-### Variables d'environnement supportées
+### Supported Environment Variables
 
 - `LZCTL_TENANT_ID`
 - `LZCTL_SUBSCRIPTION_ID`
@@ -67,32 +67,32 @@ En mode non-interactif, `init` peut aussi être piloté par flags ou variables d
 - `LZCTL_CICD_PLATFORM`
 - `LZCTL_STATE_STRATEGY`
 
-## Bootstrap du state backend
+## State Backend Bootstrap
 
-Par défaut, `lzctl init` provisionne automatiquement :
-- Un resource group (`rg-<project>-tfstate-<region>`)
-- Un storage account (avec versioning, soft delete, encryption)
-- Un blob container (`tfstate`)
-- Un managed identity avec les droits nécessaires
-- Des federated credentials OIDC pour CI/CD
+By default, `lzctl init` automatically provisions:
+- A resource group (`rg-<project>-tfstate-<region>`)
+- A storage account (with versioning, soft delete, encryption)
+- A blob container (`tfstate`)
+- A managed identity with the required permissions
+- OIDC federated credentials for CI/CD
 
-Le bootstrap utilise `az` CLI directement (pas Terraform — évite le problème chicken-and-egg).
+The bootstrap uses `az` CLI directly (not Terraform — avoids the chicken-and-egg problem).
 
-Passer `--no-bootstrap` pour sauter cette étape si le backend existe déjà.
+Pass `--no-bootstrap` to skip this step if the backend already exists.
 
-## Exemples
+## Examples
 
 ```bash
-# Wizard interactif (recommandé)
+# Interactive wizard (recommended)
 lzctl init
 
-# Non-interactif depuis un fichier
+# Non-interactive from a file
 lzctl init --config lzctl.yaml
 
-# Input one-shot converti en lzctl.yaml
+# One-shot input converted to lzctl.yaml
 lzctl init --from-file docs/examples/pipeline-init/lzctl-init-input.yaml
 
-# Non-interactif 100% flags
+# Fully non-interactive with flags
 lzctl init \
     --tenant-id 00000000-0000-0000-0000-000000000001 \
     --project-name contoso-platform \
@@ -100,23 +100,23 @@ lzctl init \
     --connectivity none \
     --cicd-platform github-actions
 
-# Non-interactif via variables d'environnement
+# Non-interactive via environment variables
 LZCTL_TENANT_ID=00000000-0000-0000-0000-000000000001 \
 LZCTL_MG_MODEL=caf-standard \
 LZCTL_CONNECTIVITY=hub-spoke \
 lzctl init --repo-root ./lz-repo
 
-# Mode CI strict (aucun prompt)
+# Strict CI mode (no prompts)
 CI=true lzctl init --ci --tenant-id 00000000-0000-0000-0000-000000000001
 
-# Dry-run (prévisualiser sans écrire)
+# Dry-run (preview without writing)
 lzctl init --dry-run
 
-# Forcer la réécriture
+# Force overwrite
 lzctl init --force
 ```
 
-## Structure générée
+## Generated Structure
 
 ```
 .
@@ -135,11 +135,11 @@ lzctl init --force
 │   └── connectivity/
 ├── landing-zones/
 └── pipelines/
-    └── .github/workflows/  (ou .azuredevops/)
+    └── .github/workflows/  (or .azuredevops/)
 ```
 
-## Voir aussi
+## See Also
 
-- [validate](validate.md) — valider après init
-- [doctor](doctor.md) — vérifier les prérequis avant init
-- [CI headless](../operations/ci-headless.md) — exécuter init/validate/plan en pipeline non-interactif
+- [validate](validate.md) — validate after init
+- [doctor](doctor.md) — check prerequisites before init
+- [CI headless](../operations/ci-headless.md) — run init/validate/plan in a non-interactive pipeline

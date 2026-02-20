@@ -3,84 +3,83 @@
 ## Development Setup
 
 ```bash
-# Prérequis
+# Prerequisites
 go version    # >= 1.24
 terraform -v  # >= 1.5
 git --version # >= 2.30
 
-# Clone et build
+# Clone and build
 git clone https://github.com/kjourdan1/lzctl.git
 cd lzctl
 go mod tidy
 go build -o bin/lzctl .
 ```
 
-## Workflow de développement
+## Development Workflow
 
-1. Créer une branche : `git checkout -b feature/<name>`
-2. Développer
-3. Lancer les vérifications :
+1. Create a branch: `git checkout -b feature/<name>`
+2. Develop
+3. Run checks:
    ```bash
-   make fmt      # Formater le code
-   make vet      # Analyse statique
-   make test     # Lancer tous les tests
-   make build    # Vérifier la compilation
+   make fmt      # Format code
+   make vet      # Static analysis
+   make test     # Run all tests
+   make build    # Verify compilation
    ```
-4. Valider les manifestes : `lzctl validate --strict`
-5. Soumettre une Pull Request
+4. Validate manifests: `lzctl validate --strict`
+5. Submit a Pull Request
 
-## Organisation du code
+## Code Organisation
 
-| Répertoire | Rôle |
-|------------|------|
-| `cmd/` | Commandes Cobra CLI (wrappers fins appelant `internal/`) |
-| `internal/` | Logique métier (config, applier, audit, drift, state, policy, etc.) |
-| `schemas/` | Schéma JSON embarqué pour validation de `lzctl.yaml` |
-| `templates/` | Templates Go pour la génération Terraform, pipelines, manifestes |
-| `profiles/` | Catalogue de profils CAF (`catalog.yaml`) |
-| `policies/` | Artefacts Policy-as-Code (définitions, initiatives, assignments) |
-| `docs/` | Documentation (commandes, architecture, opérations) |
+| Directory | Role |
+|-----------|------|
+| `cmd/` | Cobra CLI commands (thin wrappers calling `internal/`) |
+| `internal/` | Business logic (config, audit, state, policy, template, etc.) |
+| `schemas/` | Embedded JSON schema for `lzctl.yaml` validation |
+| `templates/` | Go templates for Terraform, pipeline, and manifest generation |
+| `profiles/` | CAF profile catalogue (`catalog.yaml`) |
+| `docs/` | Documentation (commands, architecture, operations) |
 
 ## Tests
 
 ```bash
-# Tous les tests
+# All tests
 go test ./...
 
-# Un package spécifique
+# Specific package
 go test ./internal/config/...
 
-# Un test spécifique
+# Specific test
 go test ./internal/config/ -run TestCrossValidate
 
-# Avec sortie détaillée
+# Verbose output
 go test -v ./internal/audit/...
 
-# Avec race detection
+# With race detection
 go test -race ./...
 ```
 
-Voir [TESTING.md](../TESTING.md) pour le guide complet des tests.
+See [TESTING.md](../TESTING.md) for the full testing guide.
 
 ## Conventions
 
-- **Commands** (`cmd/`): Fins — parser les flags, appeler `internal/`, afficher le résultat
-- **Internal packages**: Toute la logique métier. Pas de dépendances Cobra.
+- **Commands** (`cmd/`): Thin — parse flags, call `internal/`, display the result
+- **Internal packages**: All business logic. No Cobra dependencies.
 - **Manifest**: `apiVersion: lzctl/v1`, `kind: LandingZone`
-- **Erreurs**: `fmt.Errorf("context: %w", err)` — wrapper, jamais avaler
-- **Output**: Utiliser `internal/output` pour les messages formatés (Info, Success, Warning, Error)
+- **Errors**: `fmt.Errorf("context: %w", err)` — wrap, never swallow
+- **Output**: Use `internal/output` for formatted messages (Info, Success, Warning, Error)
 
-## Ajouter une nouvelle commande
+## Adding a New Command
 
-1. Créer `cmd/<command>.go` avec une commande Cobra
-2. Créer `internal/<package>/<package>.go` avec la logique
-3. Connecter dans `cmd/root.go` (`rootCmd.AddCommand`)
-4. Ajouter des tests dans `cmd/cmd_test.go` et `internal/<package>/<package>_test.go`
-5. Mettre à jour la CLI Reference dans `docs/cli-reference.md`
+1. Create `cmd/<command>.go` with a Cobra command
+2. Create `internal/<package>/<package>.go` with the logic
+3. Wire in `cmd/root.go` (`rootCmd.AddCommand`)
+4. Add tests in `cmd/cmd_test.go` and `internal/<package>/<package>_test.go`
+5. Update the CLI Reference in `docs/cli-reference.md`
 
-## Ajouter une règle d'audit
+## Adding an Audit Rule
 
-1. Créer une fonction dans `internal/audit/` suivant le pattern `check<Rule>()`
-2. Ajouter à la liste dans `compliance_engine.go`
-3. Tester avec des fixtures dans `audit_test.go`
-4. Documenter dans `docs/commands/audit.md`
+1. Create a function in `internal/audit/` following the `check<Rule>()` pattern
+2. Add to the list in `compliance_engine.go`
+3. Test with fixtures in `audit_test.go`
+4. Document in `docs/commands/audit.md`

@@ -1,6 +1,6 @@
 # lzctl plan
 
-Exécute `terraform plan` sur les couches plateforme en ordre de dépendance CAF.
+Run `terraform plan` across platform layers in CAF dependency order.
 
 ## Synopsis
 
@@ -10,40 +10,40 @@ lzctl plan [flags]
 
 ## Description
 
-Orchestre `terraform plan` sur chaque couche dans l'ordre :
+Orchestrates `terraform plan` on each layer in order:
 1. `management-groups` — Resource Organisation
 2. `identity` — Identity & Access
 3. `management` — Management & Monitoring
 4. `governance` — Azure Policies
-5. `connectivity` — Hub-Spoke ou vWAN
+5. `connectivity` — Hub-Spoke or vWAN
 
-Chaque couche utilise son propre state file dans le backend partagé.
+Each layer uses its own state file in the shared backend.
 
 ## Flags
 
-| Flag | Défaut | Description |
-|------|--------|-------------|
-| `--layer` | toutes | Couche spécifique à planifier |
-| `--target` | | Alias pour `--layer` |
-| `--out` | | Enregistrer le résumé dans un fichier |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--layer` | all | Specific layer to plan |
+| `--target` | | Alias for `--layer` |
+| `--out` | | Save the summary to a file |
 
-## Exemples
+## Examples
 
 ```bash
-# Plan sur toutes les couches
+# Plan all layers
 lzctl plan
 
-# Plan sur une couche spécifique
+# Plan a specific layer
 lzctl plan --layer connectivity
 
-# Enregistrer le résumé
+# Save the summary
 lzctl plan --out plan-output.txt
 
-# Sortie JSON
+# JSON output
 lzctl plan --json
 ```
 
-## Sortie
+## Output
 
 ```
 ═══ Planning: management-groups ═══
@@ -56,7 +56,7 @@ lzctl plan --json
   Plan: 3 to add, 0 to change, 0 to destroy.
 ```
 
-## Voir aussi
+## See Also
 
-- [apply](apply.md) — appliquer les changements
-- [drift](drift.md) — détecter le drift
+- [apply](apply.md) — apply changes
+- [drift](drift.md) — detect drift

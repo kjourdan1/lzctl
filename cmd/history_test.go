@@ -14,6 +14,7 @@ import (
 func TestHistoryCmd_WithEvents_NoError(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // Windows: os.UserHomeDir() reads USERPROFILE
 
 	auditDir := filepath.Join(home, ".lzctl")
 	require.NoError(t, os.MkdirAll(auditDir, 0o755))
@@ -40,6 +41,7 @@ func TestHistoryCmd_WithEvents_NoError(t *testing.T) {
 func TestHistoryCmd_TenantFilter_NoError(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // Windows: os.UserHomeDir() reads USERPROFILE
 
 	auditDir := filepath.Join(home, ".lzctl")
 	require.NoError(t, os.MkdirAll(auditDir, 0o755))
@@ -85,6 +87,7 @@ func TestHistoryCmd_TenantFilter_NoError(t *testing.T) {
 func TestHistoryCmd_TenantFilter_NoMatch(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // Windows: os.UserHomeDir() reads USERPROFILE
 
 	auditDir := filepath.Join(home, ".lzctl")
 	require.NoError(t, os.MkdirAll(auditDir, 0o755))

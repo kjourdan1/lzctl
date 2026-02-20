@@ -90,19 +90,38 @@ func executeCommandWithProcessIO(t *testing.T, args ...string) (string, string, 
 	os.Stdout = wOut
 	os.Stderr = wErr
 
+	// Read pipes concurrently to prevent deadlock on Windows where pipe
+	// buffers are small (4 KB) and synchronous writes can block the command.
+	type result struct {
+		data []byte
+		err  error
+	}
+	outCh := make(chan result, 1)
+	errCh := make(chan result, 1)
+	go func() {
+		b, readErr := io.ReadAll(rOut)
+		outCh <- result{b, readErr}
+	}()
+	go func() {
+		b, readErr := io.ReadAll(rErr)
+		errCh <- result{b, readErr}
+	}()
+
 	_, _, runErr := executeCommand(args...)
 
 	require.NoError(t, wOut.Close())
 	require.NoError(t, wErr.Close())
-	outBytes, outReadErr := io.ReadAll(rOut)
-	errBytes, errReadErr := io.ReadAll(rErr)
-	require.NoError(t, outReadErr)
-	require.NoError(t, errReadErr)
+
+	outRes := <-outCh
+	errRes := <-errCh
 
 	os.Stdout = oldStdout
 	os.Stderr = oldStderr
 
-	return string(outBytes), string(errBytes), runErr
+	require.NoError(t, outRes.err)
+	require.NoError(t, errRes.err)
+
+	return string(outRes.data), string(errRes.data), runErr
 }
 
 func TestValidateCmd_MissingConfig_ReturnsError(t *testing.T) {

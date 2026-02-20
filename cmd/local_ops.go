@@ -73,7 +73,10 @@ func runTerraformCmd(ctx context.Context, dir string, args ...string) (string, e
 	}
 	cmd := exec.CommandContext(ctx, "terraform", args...)
 	cmd.Dir = dir
-	cmd.Env = append(cmd.Env, "TF_INPUT=false")
+	// Inherit the full environment and append TF_INPUT=false so that the
+	// process sees the current PATH (needed in tests that override PATH via
+	// t.Setenv to point to a fake terraform binary).
+	cmd.Env = append(os.Environ(), "TF_INPUT=false")
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out

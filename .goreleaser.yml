@@ -75,15 +75,5 @@ release:
   prerelease: auto
   name_template: "v{{ .Version }}"
 
-homebrew:
-  - repository:
-      owner: kjourdan1
-      name: homebrew-tap
-    name: lzctl
-    homepage: "https://github.com/kjourdan1/lzctl"
-    description: "CLI tool for Azure Landing Zone scaffolding and management"
-    license: "Apache-2.0"
-    install: |
-      bin.install "lzctl"
-    test: |
-      system "#{bin}/lzctl", "version"
+# Homebrew tap publishing is configured separately via goreleaser-homebrew-tap action
+# See: https://goreleaser.com/customization/homebrew/

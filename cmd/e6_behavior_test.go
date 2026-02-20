@@ -124,6 +124,7 @@ func TestPlanCmd_WithoutTerraform_ReturnsError(t *testing.T) {
 
 func TestApplyCmd_WithoutTerraform_ReturnsError(t *testing.T) {
 	t.Setenv("PATH", "")
+	t.Setenv("CI", "") // prevent GitHub Actions CI=true from triggering --auto-approve gate
 	tmpDir := t.TempDir()
 
 	_, _, err := executeCommand("apply", "--repo-root", tmpDir)

@@ -35,10 +35,10 @@ type PolicyDefinition struct {
 
 // PolicyWorkflow tracks lifecycle state of all policy artifacts.
 type PolicyWorkflow struct {
-	APIVersion  string          `yaml:"apiVersion"`
-	Kind        string          `yaml:"kind"`
-	Metadata    WorkflowMeta    `yaml:"metadata"`
-	Spec        WorkflowSpec    `yaml:"spec"`
+	APIVersion string       `yaml:"apiVersion"`
+	Kind       string       `yaml:"kind"`
+	Metadata   WorkflowMeta `yaml:"metadata"`
+	Spec       WorkflowSpec `yaml:"spec"`
 }
 
 type WorkflowMeta struct {
@@ -47,10 +47,10 @@ type WorkflowMeta struct {
 }
 
 type WorkflowSpec struct {
-	Definitions []DefinitionState  `yaml:"definitions"`
-	Initiatives []InitiativeState  `yaml:"initiatives"`
-	Assignments []AssignmentState  `yaml:"assignments"`
-	Exemptions  []ExemptionState   `yaml:"exemptions"`
+	Definitions []DefinitionState `yaml:"definitions"`
+	Initiatives []InitiativeState `yaml:"initiatives"`
+	Assignments []AssignmentState `yaml:"assignments"`
+	Exemptions  []ExemptionState  `yaml:"exemptions"`
 }
 
 type DefinitionState struct {
@@ -86,11 +86,11 @@ type ComplianceState struct {
 }
 
 type RemediationRef struct {
-	TaskID             string `yaml:"taskId"`
-	Status             string `yaml:"status"`
-	Created            string `yaml:"created"`
-	Completed          string `yaml:"completed,omitempty"`
-	ResourcesRemediated int   `yaml:"resourcesRemediated"`
+	TaskID              string `yaml:"taskId"`
+	Status              string `yaml:"status"`
+	Created             string `yaml:"created"`
+	Completed           string `yaml:"completed,omitempty"`
+	ResourcesRemediated int    `yaml:"resourcesRemediated"`
 }
 
 type ExemptionState struct {
@@ -245,16 +245,16 @@ type VerifyOpts struct {
 }
 
 type VerifyReport struct {
-	AssignmentName    string               `json:"assignmentName" yaml:"assignmentName"`
-	Scope             string               `json:"scope" yaml:"scope"`
-	Evaluated         int                  `json:"evaluated" yaml:"evaluated"`
-	Compliant         int                  `json:"compliant" yaml:"compliant"`
-	NonCompliant      int                  `json:"nonCompliant" yaml:"nonCompliant"`
-	Exempt            int                  `json:"exempt" yaml:"exempt"`
-	ComplianceRate    float64              `json:"complianceRate" yaml:"complianceRate"`
-	NonCompliantGroups []NonCompliantGroup  `json:"nonCompliantGroups,omitempty" yaml:"nonCompliantGroups,omitempty"`
-	GeneratedAt       string               `json:"generatedAt" yaml:"generatedAt"`
-	Simulated         bool                 `json:"simulated,omitempty" yaml:"simulated,omitempty"`
+	AssignmentName     string              `json:"assignmentName" yaml:"assignmentName"`
+	Scope              string              `json:"scope" yaml:"scope"`
+	Evaluated          int                 `json:"evaluated" yaml:"evaluated"`
+	Compliant          int                 `json:"compliant" yaml:"compliant"`
+	NonCompliant       int                 `json:"nonCompliant" yaml:"nonCompliant"`
+	Exempt             int                 `json:"exempt" yaml:"exempt"`
+	ComplianceRate     float64             `json:"complianceRate" yaml:"complianceRate"`
+	NonCompliantGroups []NonCompliantGroup `json:"nonCompliantGroups,omitempty" yaml:"nonCompliantGroups,omitempty"`
+	GeneratedAt        string              `json:"generatedAt" yaml:"generatedAt"`
+	Simulated          bool                `json:"simulated,omitempty" yaml:"simulated,omitempty"`
 }
 
 type NonCompliantGroup struct {
@@ -380,7 +380,9 @@ func Remediate(opts RemediateOpts) (*RemediateResult, error) {
 							Created: time.Now().UTC().Format(time.RFC3339),
 						},
 					)
-					saveWorkflow(opts.RepoRoot, workflow)
+					if err := saveWorkflow(opts.RepoRoot, workflow); err != nil {
+						fmt.Fprintf(os.Stderr, "warning: could not save workflow remediation state: %v\n", err)
+					}
 					break
 				}
 			}
@@ -785,8 +787,8 @@ func scaffoldDefinition(name, category string) ([]byte, error) {
 			},
 			"parameters": map[string]interface{}{
 				"effect": map[string]interface{}{
-					"type":         "String",
-					"defaultValue": "Audit",
+					"type":          "String",
+					"defaultValue":  "Audit",
 					"allowedValues": []string{"Audit", "Deny", "Disabled"},
 					"metadata": map[string]interface{}{
 						"displayName": "Effect",
@@ -876,10 +878,10 @@ func scaffoldExemption(name string) ([]byte, error) {
 				"approvalDate":    time.Now().UTC().Format(time.RFC3339),
 				"reviewDate":      time.Now().AddDate(0, 6, 0).UTC().Format(time.RFC3339),
 			},
-			"policyAssignmentId":         "TODO: /providers/Microsoft.Authorization/policyAssignments/assignment-name",
+			"policyAssignmentId":           "TODO: /providers/Microsoft.Authorization/policyAssignments/assignment-name",
 			"policyDefinitionReferenceIds": []string{"TODO-ref-id"},
-			"exemptionCategory":          "Waiver",
-			"expiresOn":                  time.Now().AddDate(0, 6, 0).UTC().Format(time.RFC3339),
+			"exemptionCategory":            "Waiver",
+			"expiresOn":                    time.Now().AddDate(0, 6, 0).UTC().Format(time.RFC3339),
 		},
 	}
 	return json.MarshalIndent(exempt, "", "  ")

@@ -426,18 +426,28 @@ func createSPNWithCustomRole(opts Options, result *Result) error {
 				"subject":   cfg.subject,
 				"audiences": []string{"api://AzureADTokenExchange"},
 			}
-			credJSON, _ := json.Marshal(fedCred)
+			credJSON, err := json.Marshal(fedCred)
+			if err != nil {
+				continue
+			}
 
 			tmpCred, err := os.CreateTemp("", "lzctl-oidc-*.json")
 			if err != nil {
 				continue
 			}
-			tmpCred.Write(credJSON)
-			tmpCred.Close()
+			if _, err := tmpCred.Write(credJSON); err != nil {
+				_ = tmpCred.Close()
+				_ = os.Remove(tmpCred.Name())
+				continue
+			}
+			if err := tmpCred.Close(); err != nil {
+				_ = os.Remove(tmpCred.Name())
+				continue
+			}
 
 			_ = runAz(opts.Verbosity, "ad", "app", "federated-credential", "create",
 				"--id", result.SPNAppID, "--parameters", tmpCred.Name())
-			os.Remove(tmpCred.Name())
+			_ = os.Remove(tmpCred.Name())
 		}
 		fmt.Fprintf(os.Stderr, "   ✅ OIDC federated credentials configured for %s/%s\n", opts.GitHubOrg, opts.GitHubRepo)
 	}

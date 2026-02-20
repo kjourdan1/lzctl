@@ -48,19 +48,19 @@ It never pushes to any remote.`,
 }
 
 var (
-	initTenantID       string
-	initSubscriptionID string
-	initFromFile       string
-	initProjectName    string
-	initMGModel        string
-	initConnectivity   string
-	initIdentity       string
-	initPrimaryRegion  string
+	initTenantID        string
+	initSubscriptionID  string
+	initFromFile        string
+	initProjectName     string
+	initMGModel         string
+	initConnectivity    string
+	initIdentity        string
+	initPrimaryRegion   string
 	initSecondaryRegion string
-	initCICDPlatform   string
-	initStateStrategy  string
-	initForce          bool
-	initNoBootstrap    bool
+	initCICDPlatform    string
+	initStateStrategy   string
+	initForce           bool
+	initNoBootstrap     bool
 )
 
 func init() {

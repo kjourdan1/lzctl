@@ -331,9 +331,9 @@ func checkExistingConflicts(root string, resources []importer.ImportableResource
 }
 
 type importJSONOutput struct {
-	Status    string                       `json:"status"`
-	Total     int                          `json:"total"`
-	Supported int                          `json:"supported"`
+	Status    string                        `json:"status"`
+	Total     int                           `json:"total"`
+	Supported int                           `json:"supported"`
 	Resources []importer.ImportableResource `json:"resources"`
 }
 

@@ -157,13 +157,13 @@ func TestAuditCommandRegistered(t *testing.T) {
 	assert.True(t, found, "audit command should be registered")
 }
 
-	func TestAddBlueprintCommandRegistered(t *testing.T) {
-		found := false
-		for _, c := range rootCmd.Commands() {
-			if c.Use == "add-blueprint" {
-				found = true
-				break
-			}
+func TestAddBlueprintCommandRegistered(t *testing.T) {
+	found := false
+	for _, c := range rootCmd.Commands() {
+		if c.Use == "add-blueprint" {
+			found = true
+			break
 		}
-		assert.True(t, found, "expected add-blueprint command to be registered")
 	}
+	assert.True(t, found, "expected add-blueprint command to be registered")
+}

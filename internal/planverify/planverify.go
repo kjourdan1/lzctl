@@ -51,7 +51,7 @@ type VerifyResult struct {
 	PlanFile     string
 	ExpectedHash string
 	ActualHash   string
-	Valid         bool
+	Valid        bool
 }
 
 // Verify reads planFile.sha256 and compares it to the actual SHA256 of planFile.
@@ -74,7 +74,7 @@ func Verify(planFile string) (*VerifyResult, error) {
 		PlanFile:     planFile,
 		ExpectedHash: expected,
 		ActualHash:   actual,
-		Valid:         expected == actual,
+		Valid:        expected == actual,
 	}
 
 	if !result.Valid {

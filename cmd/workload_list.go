@@ -50,7 +50,9 @@ Examples:
 			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 				lz.Name, lz.Archetype, sub, connected, addr)
 		}
-		w.Flush()
+		if err := w.Flush(); err != nil {
+			return fmt.Errorf("flush output: %w", err)
+		}
 		fmt.Printf("\nTotal: %d landing zone(s)\n", len(cfg.Spec.LandingZones))
 		return nil
 	},

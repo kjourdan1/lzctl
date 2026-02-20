@@ -76,8 +76,8 @@ func runAssess(cmd *cobra.Command, args []string) error {
 			"connectivity":  cfg.Spec.Platform.Connectivity.Type,
 			"landingZones":  len(cfg.Spec.LandingZones),
 		},
-		"platformLayers":  layers,
-		"layerCount":      len(layers),
+		"platformLayers":   layers,
+		"layerCount":       len(layers),
 		"landingZoneCount": len(cfg.Spec.LandingZones),
 	}
 

@@ -63,6 +63,8 @@ func runStateList(cmd *cobra.Command, _ []string) error {
 		}
 		fmt.Fprintf(w, "%s\t%s\t%d B\t%s\t%s\n", s.Layer, s.Key, s.Size, mod, lock)
 	}
-	w.Flush()
+	if err := w.Flush(); err != nil {
+		return fmt.Errorf("flushing output: %w", err)
+	}
 	return nil
 }

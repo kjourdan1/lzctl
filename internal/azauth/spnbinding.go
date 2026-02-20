@@ -11,8 +11,8 @@
 //   - A forged lzctl.yaml could point to a more permissive SPN.
 //
 // Validation levels:
-//   1. Pre-auth: Compare AZURE_CLIENT_ID env var with identity.clientId (fast, no network)
-//   2. Post-auth: Decode the obtained JWT and validate tid + appid claims (cryptographic guarantee)
+//  1. Pre-auth: Compare AZURE_CLIENT_ID env var with identity.clientId (fast, no network)
+//  2. Post-auth: Decode the obtained JWT and validate tid + appid claims (cryptographic guarantee)
 package azauth
 
 import (

@@ -51,18 +51,18 @@ func TestInitCmd_NonInteractive_FlagCombinations(t *testing.T) {
 		secondary    string
 	}{
 		{
-			name: "caf-lite none",
-			args: []string{"--mg-model", "caf-lite", "--connectivity", "none"},
+			name:     "caf-lite none",
+			args:     []string{"--mg-model", "caf-lite", "--connectivity", "none"},
 			expectMG: "caf-lite", expectConn: "none", expectCICD: "github-actions", expectTenant: "00000000-0000-0000-0000-000000000001",
 		},
 		{
-			name: "caf-standard hub-spoke",
-			args: []string{"--mg-model", "caf-standard", "--connectivity", "hub-spoke", "--cicd-platform", "azure-devops"},
+			name:     "caf-standard hub-spoke",
+			args:     []string{"--mg-model", "caf-standard", "--connectivity", "hub-spoke", "--cicd-platform", "azure-devops"},
 			expectMG: "caf-standard", expectConn: "hub-spoke", expectCICD: "azure-devops", expectTenant: "00000000-0000-0000-0000-000000000001",
 		},
 		{
-			name: "caf-standard vwan",
-			args: []string{"--mg-model", "caf-standard", "--connectivity", "vwan", "--secondary-region", "northeurope"},
+			name:     "caf-standard vwan",
+			args:     []string{"--mg-model", "caf-standard", "--connectivity", "vwan", "--secondary-region", "northeurope"},
 			expectMG: "caf-standard", expectConn: "vwan", expectCICD: "github-actions", expectTenant: "00000000-0000-0000-0000-000000000001", secondary: "northeurope",
 		},
 	}

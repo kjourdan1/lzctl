@@ -94,11 +94,11 @@ func (g *HCLGenerator) GenerateAVMModuleBlock(resource ImportableResource, avmSo
 	attrs := g.avmModuleAttributes(resource)
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("# AVM module — lzctl emits a module stub; import via:\n"))
+	sb.WriteString("# AVM module — lzctl emits a module stub; import via:\n")
 	sb.WriteString(fmt.Sprintf("#   terraform import 'module.%s.<resource_type>.this' %q\n", localName, resource.ID))
 	sb.WriteString(fmt.Sprintf("module %q {\n", localName))
 	sb.WriteString(fmt.Sprintf("  source  = %q\n", avmSource))
-	sb.WriteString(fmt.Sprintf("  version = \"~> 0.1\" # TODO: pin to latest tested version\n"))
+	sb.WriteString("  version = \"~> 0.1\" # TODO: pin to latest tested version\n")
 	for _, attr := range attrs {
 		sb.WriteString(fmt.Sprintf("  %s\n", attr))
 	}

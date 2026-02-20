@@ -78,8 +78,8 @@ func Verify(planFile string) (*VerifyResult, error) {
 	}
 
 	if !result.Valid {
-		return result, fmt.Errorf(
-			"PLAN_INTEGRITY_FAILED: tfplan SHA256 mismatch.\n  File:     %s\n  Expected: %s\n  Got:      %s\n\nThis may indicate tampering between plan and apply steps.",
+		return result, fmt.Errorf( //nolint:revive,staticcheck // intentional structured security error
+			"plan integrity failed: tfplan SHA256 mismatch (file: %s, expected: %s, got: %s)",
 			planFile, expected, actual,
 		)
 	}

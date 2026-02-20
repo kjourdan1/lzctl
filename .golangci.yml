@@ -72,18 +72,22 @@ linters:
     gosec:
       excludes:
         - G104 # unhandled errors — covered by errcheck
+        - G301 # directory permissions 0750+ — expected for CLI scaffolding
         - G304 # file path from variable — expected in CLI tool
+        - G306 # WriteFile permissions 0600+ — 0644 is standard for generated files
+
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+          - gosec
+          - unparam
+          - prealloc
+      - path: cmd/
+        linters:
+          - unparam # cobra handlers have fixed signatures
 
 issues:
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
-        - gosec
-        - unparam
-        - prealloc
-    - path: cmd/
-      linters:
-        - unparam # cobra handlers have fixed signatures
   max-issues-per-linter: 50
   max-same-issues: 5

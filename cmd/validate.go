@@ -90,11 +90,11 @@ func runValidate(cmd *cobra.Command, args []string) error {
 					continue
 				}
 
-				if _, initErr := runTerraformCmd(nil, dir, "init", "-backend=false", "-input=false", "-no-color"); initErr != nil {
+				if _, initErr := runTerraformCmd(cmd.Context(), dir, "init", "-backend=false", "-input=false", "-no-color"); initErr != nil {
 					checks = append(checks, check{Name: "terraform-" + layer, Status: "error", Message: "terraform init failed"})
 					continue
 				}
-				if _, valErr := runTerraformCmd(nil, dir, "validate", "-no-color"); valErr != nil {
+				if _, valErr := runTerraformCmd(cmd.Context(), dir, "validate", "-no-color"); valErr != nil {
 					checks = append(checks, check{Name: "terraform-" + layer, Status: "error", Message: "terraform validate failed"})
 				} else {
 					checks = append(checks, check{Name: "terraform-" + layer, Status: "pass", Message: "terraform validate passed"})

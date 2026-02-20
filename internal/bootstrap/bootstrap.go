@@ -89,7 +89,7 @@ func StateBackend(opts Options) (*Result, error) {
 
 	// Check az CLI is available
 	if _, err := exec.LookPath("az"); err != nil {
-		return nil, fmt.Errorf("Azure CLI (az) not found in PATH. Install: https://aka.ms/installazurecli")
+		return nil, fmt.Errorf("azure CLI (az) not found in PATH; install: https://aka.ms/installazurecli")
 	}
 
 	// Set subscription
@@ -469,7 +469,7 @@ func runAz(verbosity int, args ...string) error {
 }
 
 // runAzOutput runs an Azure CLI command and returns stdout.
-func runAzOutput(verbosity int, args ...string) (string, error) {
+func runAzOutput(_ int, args ...string) (string, error) {
 	cmd := exec.CommandContext(context.Background(), "az", args...)
 	out, err := cmd.Output()
 	if err != nil {

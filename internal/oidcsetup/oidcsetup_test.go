@@ -10,7 +10,7 @@ import (
 )
 
 // mockCommands sets up a command runner that returns canned responses.
-func mockCommands(t *testing.T, responses map[string]struct {
+func mockCommands(t *testing.T, responses map[string]struct { //nolint:unused // reserved for OIDC flow tests
 	output string
 	err    error
 }) func() {

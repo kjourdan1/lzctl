@@ -383,7 +383,7 @@ variable "keyvault_soft_delete_retention_days" {
 `
 }
 
-func renderPaasSecureBlueprintTFVars(overrides map[string]any) (string, error) {
+func renderPaasSecureBlueprintTFVars(overrides map[string]any) (string, error) { //nolint:unparam // error return reserved for future validation
 	appServiceSKU := "P1v3"
 	runtimeStack := "DOTNET|8.0"
 	apimEnabled := true
@@ -457,6 +457,10 @@ func asStringMap(overrides map[string]any, key string) map[string]any {
 	}
 	return nil
 }
+
+// blueprintOverridesJSON serializes overrides for template injection.
+// Retained for future blueprint customisation support.
+var _ = blueprintOverridesJSON //nolint:unused // reserved for E10
 
 func blueprintOverridesJSON(overrides map[string]any) string {
 	if overrides == nil {
@@ -742,8 +746,8 @@ output "key_vault_id" {
 
 // renderArgoCDTerraformBlock generates the conditional ArgoCD extension or helm
 // resource block (E9-S2).
-func renderArgoCDTerraformBlock(slug string, argocd config.ArgoCDConfig) string {
-	return fmt.Sprintf(`
+func renderArgoCDTerraformBlock(_ string, _ config.ArgoCDConfig) string {
+	return `
 # ── ArgoCD (opt-in — E9-S2) ───────────────────────────────────────────────────
 # Mode "extension" uses the Microsoft Flux GitOps Arc extension (recommended).
 # Mode "helm" installs the upstream Argo CD helm chart (more version control).
@@ -773,7 +777,7 @@ resource "helm_release" "argocd" {
   set { name = "server.service.type"; value = "ClusterIP" }
   set { name = "configs.params.server\\.insecure"; value = "false" }
 }
-`)
+` + ""
 }
 
 func renderAKSPlatformVariablesTF() string {

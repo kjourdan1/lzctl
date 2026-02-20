@@ -155,7 +155,7 @@ func DetectTenantID() (string, error) {
 	}
 	tid := strings.TrimSpace(string(out))
 	if tid == "" {
-		return "", fmt.Errorf("Azure CLI returned empty tenant ID; run 'az login' first")
+		return "", fmt.Errorf("azure CLI returned empty tenant ID; run 'az login' first")
 	}
 	return tid, nil
 }
@@ -168,7 +168,7 @@ func DetectSubscriptionID() (string, error) {
 	}
 	sid := strings.TrimSpace(string(out))
 	if sid == "" {
-		return "", fmt.Errorf("Azure CLI returned empty subscription ID; run 'az login' first")
+		return "", fmt.Errorf("azure CLI returned empty subscription ID; run 'az login' first")
 	}
 	return sid, nil
 }

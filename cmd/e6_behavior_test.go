@@ -42,7 +42,7 @@ func installFakeTerraform(t *testing.T, planLine string, planExitCode int) strin
 		require.NoError(t, os.WriteFile(scriptPath, []byte(script), 0o644))
 	} else {
 		scriptPath = filepath.Join(binDir, "terraform")
-		script := "#!/usr/bin/env sh\n" +
+		script := "#!/bin/sh\n" +
 			"case \"$1\" in\n" +
 			"  init)\n" +
 			"    echo \"Terraform has been successfully initialized!\"\n" +

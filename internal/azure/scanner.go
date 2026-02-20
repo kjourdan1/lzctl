@@ -237,7 +237,7 @@ func (s *Scanner) scanNetworking(subs []audit.Subscription) ([]audit.VirtualNetw
 	return vnets, peerings, warnings
 }
 
-func (s *Scanner) scanDiagnosticSettings(subs []audit.Subscription) ([]audit.DiagnosticSetting, error) {
+func (s *Scanner) scanDiagnosticSettings(subs []audit.Subscription) ([]audit.DiagnosticSetting, error) { //nolint:unparam // error return reserved for future use
 	out := make([]audit.DiagnosticSetting, 0, len(subs))
 	for _, sub := range subs {
 		resourceID := "/subscriptions/" + sub.ID
@@ -259,7 +259,7 @@ func (s *Scanner) scanDiagnosticSettings(subs []audit.Subscription) ([]audit.Dia
 	return out, nil
 }
 
-func (s *Scanner) scanDefenderPlans(subs []audit.Subscription) ([]audit.DefenderPlan, error) {
+func (s *Scanner) scanDefenderPlans(subs []audit.Subscription) ([]audit.DefenderPlan, error) { //nolint:unparam // error return reserved for future use
 	out := make([]audit.DefenderPlan, 0)
 	for _, sub := range subs {
 		raw, err := s.cli.RunJSON("security", "pricing", "list", "--subscription", sub.ID)

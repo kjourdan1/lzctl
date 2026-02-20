@@ -265,7 +265,7 @@ func configureFederatedCredentials(objectID string, opts Options) ([]string, err
 		},
 	}
 
-	var created []string
+	created := make([]string, 0, len(specs))
 	for _, spec := range specs {
 		if err := createFederatedCredential(objectID, spec, opts); err != nil {
 			// If it already exists, skip silently
@@ -287,7 +287,7 @@ func configureFederatedCredentials(objectID string, opts Options) ([]string, err
 	return created, nil
 }
 
-func createFederatedCredential(objectID string, spec federatedCredentialSpec, opts Options) error {
+func createFederatedCredential(objectID string, spec federatedCredentialSpec, _ Options) error {
 	specJSON, err := json.Marshal(spec)
 	if err != nil {
 		return err
@@ -330,7 +330,7 @@ func assignRBACRoles(spID string, opts Options) ([]string, error) {
 		})
 	}
 
-	var created []string
+	created := make([]string, 0, len(assignments))
 	for _, a := range assignments {
 		out, err := commandRunner("az", "role", "assignment", "create",
 			"--assignee-object-id", spID,
@@ -369,7 +369,7 @@ func storeGitHubSecrets(appID string, opts Options) ([]string, error) {
 		"AZURE_SUBSCRIPTION_ID": opts.SubscriptionID,
 	}
 
-	var stored []string
+	stored := make([]string, 0, len(secrets))
 	for name, value := range secrets {
 		if value == "" {
 			continue

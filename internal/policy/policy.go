@@ -203,7 +203,8 @@ func Test(opts TestOpts) (*TestResult, error) {
 
 	props, _ := assignment["properties"].(map[string]interface{})
 	scope, _ := props["scope"].(string)
-	policyDefId, _ := props["policyDefinitionId"].(string)
+	policyDefID, _ := props["policyDefinitionId"].(string)
+	_ = policyDefID // used for future scope validation
 
 	// Ensure enforcement mode is DoNotEnforce
 	props["enforcementMode"] = "DoNotEnforce"
@@ -231,7 +232,7 @@ func Test(opts TestOpts) (*TestResult, error) {
 
 	return &TestResult{
 		Scope:      scope,
-		Initiative: policyDefId,
+		Initiative: policyDefID,
 	}, nil
 }
 
@@ -549,7 +550,7 @@ func Diff(opts DiffOpts) (*DiffReport, error) {
 
 	// Scan local assignments
 	assignDir := filepath.Join(policiesDir, "assignments")
-	if err := filepath.Walk(assignDir, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(assignDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() || !strings.HasSuffix(info.Name(), ".json") {
 			return nil
 		}
@@ -559,9 +560,7 @@ func Diff(opts DiffOpts) (*DiffReport, error) {
 			Type: "assignment",
 		})
 		return nil
-	}); err != nil {
-		// Non-fatal: assignments dir may not exist
-	}
+	})
 
 	return report, nil
 }
@@ -826,9 +825,9 @@ func scaffoldInitiative(name, category string) ([]byte, error) {
 }
 
 func scaffoldAssignment(name, scope, initiative string) ([]byte, error) {
-	policyDefId := "TODO: /providers/Microsoft.Authorization/policySetDefinitions/" + initiative
+	policyDefID := "TODO: /providers/Microsoft.Authorization/policySetDefinitions/" + initiative
 	if initiative != "" {
-		policyDefId = fmt.Sprintf("/providers/Microsoft.Management/managementGroups/{tenantId}/providers/Microsoft.Authorization/policySetDefinitions/%s", initiative)
+		policyDefID = fmt.Sprintf("/providers/Microsoft.Management/managementGroups/{tenantId}/providers/Microsoft.Authorization/policySetDefinitions/%s", initiative)
 	}
 
 	assign := map[string]interface{}{
@@ -849,7 +848,7 @@ func scaffoldAssignment(name, scope, initiative string) ([]byte, error) {
 					},
 				},
 			},
-			"policyDefinitionId": policyDefId,
+			"policyDefinitionId": policyDefID,
 			"scope":              fmt.Sprintf("/providers/Microsoft.Management/managementGroups/{rootMgId}-%s", scope),
 			"enforcementMode":    "DoNotEnforce",
 			"parameters":         map[string]interface{}{},

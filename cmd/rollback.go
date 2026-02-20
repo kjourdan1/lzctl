@@ -121,7 +121,6 @@ func runRollback(cmd *cobra.Command, args []string) error {
 			lr.Status = "failed"
 			lr.Error = "terraform apply failed"
 			lr.Duration = time.Since(start).Round(time.Millisecond).String()
-			results = append(results, lr)
 			color.New(color.FgRed).Fprintf(os.Stderr, "   ❌ %s (%s): apply failed\n", layer, lr.Duration)
 			return exitcode.Wrap(exitcode.Terraform, fmt.Errorf("rollback layer %s: terraform apply failed", layer))
 		}

@@ -137,7 +137,7 @@ func GenerateZoneMatrix(cfg *config.LZConfig) string {
 // directories for use in pipeline shell loops. Each zone dir is followed
 // immediately by its blueprint dir when a blueprint is configured.
 func LandingZoneDirs(cfg *config.LZConfig) []string {
-	var dirs []string
+	dirs := make([]string, 0, len(cfg.Spec.LandingZones)*2)
 	for _, zone := range cfg.Spec.LandingZones {
 		slug := Slugify(zone.Name)
 		dirs = append(dirs, "landing-zones/"+slug)

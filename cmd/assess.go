@@ -59,10 +59,8 @@ func runAssess(cmd *cobra.Command, args []string) error {
 
 	bold.Fprintf(os.Stderr, "🔍 Assessing project: %s\n\n", cfg.Metadata.Name)
 
-	outDir := assessOutputDir
-	if outDir == "" {
-		outDir = filepath.Join(root, "assess")
-	}
+	// outDir reserved for future file output (E7)
+	_ = assessOutputDir
 
 	// Check which platform layers exist.
 	layers, _ := resolveLocalLayers(root, "")

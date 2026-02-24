@@ -47,7 +47,7 @@ func runStateUnlock(cmd *cobra.Command, _ []string) error {
 		reader := bufio.NewReader(os.Stdin)
 		answer, _ := reader.ReadString('\n')
 		if strings.TrimSpace(answer) != "yes" {
-			return fmt.Errorf("cancelled by user")
+			return fmt.Errorf("canceled by user")
 		}
 	}
 

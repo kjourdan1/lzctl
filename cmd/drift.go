@@ -40,7 +40,10 @@ func init() {
 }
 
 func runDrift(cmd *cobra.Command, args []string) error {
-	root, _ := filepath.Abs(repoRoot)
+	root, err := absRepoRoot()
+	if err != nil {
+		return err
+	}
 
 	if err := ensureTerraformInstalled(); err != nil {
 		return exitcode.Wrap(exitcode.Validation, err)
@@ -71,8 +74,8 @@ func runDrift(cmd *cobra.Command, args []string) error {
 		dir := filepath.Join(root, "platform", layer)
 		ld := layerDrift{Layer: layer}
 
-		if _, initErr := runTerraformCmd(cmd.Context(), dir, "init", "-input=false", "-no-color"); initErr != nil {
-			ld.Error = "terraform init failed"
+		if initOut, initErr := runTerraformCmd(cmd.Context(), dir, "init", "-input=false", "-no-color"); initErr != nil {
+			ld.Error = fmt.Sprintf("terraform init failed: %s", initOut)
 			results = append(results, ld)
 			if !jsonOutput {
 				color.New(color.FgRed).Fprintf(os.Stderr, "   ❌ %-20s init failed\n", layer)

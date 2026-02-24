@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -20,7 +19,10 @@ by policy definition.
 Updates the workflow state to 'verify' in workflow.yaml.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name, _ := cmd.Flags().GetString("name")
-		root, _ := filepath.Abs(repoRoot)
+		root, err := absRepoRoot()
+		if err != nil {
+			return err
+		}
 		outputFile, _ := cmd.Flags().GetString("output")
 
 		opts := policy.VerifyOpts{
@@ -52,7 +54,10 @@ Updates the workflow state to 'verify' in workflow.yaml.`,
 			yellow.Printf("  Exempt:        %d\n", report.Exempt)
 		}
 
-		complianceRate := float64(report.Compliant) / float64(report.Evaluated) * 100
+		var complianceRate float64
+		if report.Evaluated > 0 {
+			complianceRate = float64(report.Compliant) / float64(report.Evaluated) * 100
+		}
 		fmt.Printf("\n  Compliance Rate: %.1f%%\n", complianceRate)
 
 		if report.NonCompliant > 0 {

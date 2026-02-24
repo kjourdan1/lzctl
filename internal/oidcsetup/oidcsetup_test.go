@@ -122,6 +122,8 @@ func TestSetup_DetectsGitHubRepo(t *testing.T) {
 func TestSetup_FullFlow(t *testing.T) {
 	old := GetCommandRunner()
 	defer SetCommandRunner(old)
+	oldStdin := GetStdinCommandRunner()
+	defer SetStdinCommandRunner(oldStdin)
 
 	appJSON, _ := json.Marshal(appInfo{AppID: "app-123", ID: "obj-456"})
 
@@ -148,12 +150,12 @@ func TestSetup_FullFlow(t *testing.T) {
 		case strings.Contains(key, "az role assignment create"):
 			return []byte("{}"), nil
 
-		case strings.Contains(key, "gh secret set"):
-			return []byte(""), nil
-
 		default:
 			return []byte("{}"), nil
 		}
+	})
+	SetStdinCommandRunner(func(_ string, _ string, _ ...string) ([]byte, error) {
+		return []byte(""), nil
 	})
 
 	result, err := Setup(Options{
@@ -176,6 +178,8 @@ func TestSetup_FullFlow(t *testing.T) {
 func TestSetup_ReusesExistingApp(t *testing.T) {
 	old := GetCommandRunner()
 	defer SetCommandRunner(old)
+	oldStdin := GetStdinCommandRunner()
+	defer SetStdinCommandRunner(oldStdin)
 
 	appJSON, _ := json.Marshal(appInfo{AppID: "existing-app", ID: "existing-obj"})
 
@@ -195,12 +199,12 @@ func TestSetup_ReusesExistingApp(t *testing.T) {
 		case strings.Contains(key, "az role assignment create"):
 			return []byte("{}"), nil
 
-		case strings.Contains(key, "gh secret set"):
-			return []byte(""), nil
-
 		default:
 			return []byte("{}"), nil
 		}
+	})
+	SetStdinCommandRunner(func(_ string, _ string, _ ...string) ([]byte, error) {
+		return []byte(""), nil
 	})
 
 	result, err := Setup(Options{
@@ -219,6 +223,8 @@ func TestSetup_ReusesExistingApp(t *testing.T) {
 func TestSetup_FederatedCredentialAlreadyExists(t *testing.T) {
 	old := GetCommandRunner()
 	defer SetCommandRunner(old)
+	oldStdin := GetStdinCommandRunner()
+	defer SetStdinCommandRunner(oldStdin)
 
 	appJSON, _ := json.Marshal(appInfo{AppID: "app-1", ID: "obj-1"})
 
@@ -238,12 +244,12 @@ func TestSetup_FederatedCredentialAlreadyExists(t *testing.T) {
 		case strings.Contains(key, "az role assignment create"):
 			return []byte("{}"), nil
 
-		case strings.Contains(key, "gh secret set"):
-			return []byte(""), nil
-
 		default:
 			return []byte("{}"), nil
 		}
+	})
+	SetStdinCommandRunner(func(_ string, _ string, _ ...string) ([]byte, error) {
+		return []byte(""), nil
 	})
 
 	result, err := Setup(Options{

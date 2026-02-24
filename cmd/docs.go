@@ -38,7 +38,10 @@ func init() {
 func runDocs(cmd *cobra.Command, args []string) error {
 	output.Init(verbosity > 0, jsonOutput)
 
-	root, _ := filepath.Abs(repoRoot)
+	root, err := absRepoRoot()
+	if err != nil {
+		return err
+	}
 	bold := color.New(color.Bold)
 	green := color.New(color.FgGreen, color.Bold)
 

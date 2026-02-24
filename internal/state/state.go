@@ -175,7 +175,8 @@ func (m *Manager) SnapshotAll(tag string) ([]Snapshot, error) {
 	for _, s := range states {
 		snap, err := m.CreateSnapshot(s.Key, tag)
 		if err != nil {
-			return nil, fmt.Errorf("snapshot %s: %w", s.Key, err)
+			// Return partial results so the caller knows what succeeded
+			return snapshots, fmt.Errorf("snapshot %s: %w", s.Key, err)
 		}
 		snapshots = append(snapshots, *snap)
 	}

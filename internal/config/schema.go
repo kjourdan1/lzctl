@@ -131,8 +131,8 @@ type StateBackend struct {
 	StorageAccount string `yaml:"storageAccount" json:"storageAccount"`
 	Container      string `yaml:"container" json:"container"`
 	Subscription   string `yaml:"subscription" json:"subscription"`
-	Versioning     bool   `yaml:"versioning" json:"versioning"`                             // enable blob versioning for state history
-	SoftDelete     bool   `yaml:"softDelete" json:"softDelete"`                             // enable soft delete for accidental deletion protection
+	Versioning     *bool  `yaml:"versioning" json:"versioning"`                             // enable blob versioning for state history
+	SoftDelete     *bool  `yaml:"softDelete" json:"softDelete"`                             // enable soft delete for accidental deletion protection
 	SoftDeleteDays int    `yaml:"softDeleteDays,omitempty" json:"softDeleteDays,omitempty"` // retention days for soft-deleted blobs (default: 30)
 }
 

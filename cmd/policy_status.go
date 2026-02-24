@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/fatih/color"
@@ -17,7 +16,10 @@ var policyStatusCmd = &cobra.Command{
 	Long: `Displays the current workflow state of all policy assignments,
 including compliance data, remediation task status, and exemptions.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		root, _ := filepath.Abs(repoRoot)
+		root, err := absRepoRoot()
+		if err != nil {
+			return err
+		}
 
 		opts := policy.StatusOpts{
 			RepoRoot: root,

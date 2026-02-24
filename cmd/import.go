@@ -64,7 +64,10 @@ func init() {
 }
 
 func runImport(cmd *cobra.Command, args []string) error {
-	root, _ := filepath.Abs(repoRoot)
+	root, err := absRepoRoot()
+	if err != nil {
+		return err
+	}
 
 	bold := color.New(color.Bold)
 	green := color.New(color.FgGreen, color.Bold)
@@ -78,7 +81,6 @@ func runImport(cmd *cobra.Command, args []string) error {
 
 	var resources []importer.ImportableResource
 	var targetDir string
-	var err error
 
 	switch mode {
 	case "audit-report":

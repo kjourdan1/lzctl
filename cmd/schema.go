@@ -52,7 +52,10 @@ func runSchemaExport(cmd *cobra.Command, args []string) error {
 	}
 
 	if schemaOutputFile != "" {
-		root, _ := filepath.Abs(repoRoot)
+		root, err := absRepoRoot()
+		if err != nil {
+			return err
+		}
 		outPath := schemaOutputFile
 		if !filepath.IsAbs(outPath) {
 			outPath = filepath.Join(root, outPath)

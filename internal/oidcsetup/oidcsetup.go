@@ -45,14 +45,32 @@ var commandRunner = func(name string, args ...string) ([]byte, error) {
 	return exec.CommandContext(context.Background(), name, args...).CombinedOutput()
 }
 
+// stdinCommandRunner runs a command with data piped via stdin (avoids leaking
+// sensitive values in the process table via command-line arguments).
+var stdinCommandRunner = func(stdinData string, name string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(context.Background(), name, args...)
+	cmd.Stdin = strings.NewReader(stdinData)
+	return cmd.CombinedOutput()
+}
+
 // SetCommandRunner replaces the command runner (for testing).
 func SetCommandRunner(fn func(string, ...string) ([]byte, error)) {
 	commandRunner = fn
 }
 
+// SetStdinCommandRunner replaces the stdin command runner (for testing).
+func SetStdinCommandRunner(fn func(string, string, ...string) ([]byte, error)) {
+	stdinCommandRunner = fn
+}
+
 // GetCommandRunner returns the current command runner (for test save/restore).
 func GetCommandRunner() func(string, ...string) ([]byte, error) {
 	return commandRunner
+}
+
+// GetStdinCommandRunner returns the current stdin command runner (for test save/restore).
+func GetStdinCommandRunner() func(string, string, ...string) ([]byte, error) {
+	return stdinCommandRunner
 }
 
 // Setup creates or reuses an Azure AD App Registration, configures OIDC
@@ -374,9 +392,8 @@ func storeGitHubSecrets(appID string, opts Options) ([]string, error) {
 		if value == "" {
 			continue
 		}
-		out, err := commandRunner("gh", "secret", "set", name,
-			"--repo", opts.GitHubRepo,
-			"--body", value)
+		out, err := stdinCommandRunner(value, "gh", "secret", "set", name,
+			"--repo", opts.GitHubRepo)
 		if err != nil {
 			return stored, fmt.Errorf("setting secret %s: %s", name, string(out))
 		}

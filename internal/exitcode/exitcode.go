@@ -58,24 +58,24 @@ func Of(err error) int {
 		return SecurityBlock
 	}
 
+	// Fallback: string-based classification for errors not yet wrapped with typed codes.
+	// Each case here is a candidate for future replacement with a typed error.
 	msg := strings.ToLower(err.Error())
-	if strings.Contains(msg, "plan_integrity_failed") ||
-		strings.Contains(msg, "plan_scope_violation") ||
-		strings.Contains(msg, "binding_violation") ||
-		strings.Contains(msg, "tenant_mismatch") ||
-		strings.Contains(msg, "state_integrity_failed") ||
-		strings.Contains(msg, "is locked by another deployment operation") {
+	switch {
+	case strings.Contains(msg, "plan_integrity_failed"),
+		strings.Contains(msg, "plan_scope_violation"),
+		strings.Contains(msg, "binding_violation"),
+		strings.Contains(msg, "tenant_mismatch"),
+		strings.Contains(msg, "state_integrity_failed"),
+		strings.Contains(msg, "is locked by another deployment operation"):
 		return SecurityBlock
-	}
-	if strings.Contains(msg, "validation") || strings.Contains(msg, "invalid") {
-		return Validation
-	}
-	if strings.Contains(msg, "terraform") || strings.Contains(msg, "plan failed") || strings.Contains(msg, "apply failed") {
+	case strings.Contains(msg, "terraform") || strings.Contains(msg, "plan failed") || strings.Contains(msg, "apply failed"):
 		return Terraform
-	}
-	if strings.Contains(msg, "azure") || strings.Contains(msg, "tenant") || strings.Contains(msg, "subscription") || strings.Contains(msg, "arm") {
+	case strings.Contains(msg, "validation") || strings.Contains(msg, "invalid"):
+		return Validation
+	case strings.Contains(msg, "azure") || strings.Contains(msg, "arm"):
 		return Azure
+	default:
+		return Generic
 	}
-
-	return Generic
 }

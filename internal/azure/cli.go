@@ -1,9 +1,16 @@
 package azure
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"time"
+)
+
+const (
+	// DefaultCLITimeout is the maximum duration for a single az CLI invocation.
+	DefaultCLITimeout = 120 * time.Second
 )
 
 // CLI abstracts az command execution to make scanner testable.
@@ -33,8 +40,14 @@ func NewAzCLIWithRunner(runner CommandRunner) *AzCLI {
 }
 
 func defaultRunner(name string, args ...string) ([]byte, error) {
-	cmd := exec.Command(name, args...)
-	return cmd.Output()
+	ctx, cancel := context.WithTimeout(context.Background(), DefaultCLITimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, name, args...)
+	out, err := cmd.Output()
+	if ctx.Err() == context.DeadlineExceeded {
+		return out, fmt.Errorf("%s %v: timed out after %s", name, args, DefaultCLITimeout)
+	}
+	return out, err
 }
 
 // RunJSON executes az and decodes JSON output.

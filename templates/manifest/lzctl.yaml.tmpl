@@ -39,8 +39,8 @@ spec:
     storageAccount: {{ .Config.Spec.StateBackend.StorageAccount }}
     container: {{ .Config.Spec.StateBackend.Container }}
     subscription: {{ .Config.Spec.StateBackend.Subscription }}
-    versioning: {{ .Config.Spec.StateBackend.Versioning }}
-    softDelete: {{ .Config.Spec.StateBackend.SoftDelete }}
+    versioning: {{ if .Config.Spec.StateBackend.Versioning }}{{ deref .Config.Spec.StateBackend.Versioning }}{{ else }}true{{ end }}
+    softDelete: {{ if .Config.Spec.StateBackend.SoftDelete }}{{ deref .Config.Spec.StateBackend.SoftDelete }}{{ else }}true{{ end }}
     softDeleteDays: {{ .Config.Spec.StateBackend.SoftDeleteDays }}
   cicd:
     platform: {{ .Config.Spec.CICD.Platform }}

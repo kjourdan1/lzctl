@@ -21,7 +21,16 @@ func HelperFuncMap() texttemplate.FuncMap {
 		"storageAccName": StorageAccountName,
 		"toJSON":         ToJSON,
 		"dnsZoneRef":     DNSZoneRef,
+		"deref":          DerefBool,
 	}
+}
+
+// DerefBool dereferences a *bool, returning false if nil.
+func DerefBool(b *bool) bool {
+	if b == nil {
+		return false
+	}
+	return *b
 }
 
 // DNSZoneRef returns the central Private DNS zone name for a known Azure service.
@@ -125,7 +134,8 @@ func CIDRSubnet(parent string, newPrefix, index int) (string, error) {
 		return "", fmt.Errorf("subnet index %d out of range [0,%d)", index, subnetCount)
 	}
 
-	base := ip.To4()
+	_ = ip // use network address from ipNet, not the parsed host address
+	base := ipNet.IP.To4()
 	if base == nil {
 		return "", fmt.Errorf("only IPv4 is supported")
 	}

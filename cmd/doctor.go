@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"context"
-	"os"
+	"fmt"
 
 	"github.com/kjourdan1/lzctl/internal/doctor"
+	"github.com/kjourdan1/lzctl/internal/exitcode"
 	"github.com/kjourdan1/lzctl/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -36,7 +37,7 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 	doctor.PrintResults(summary)
 
 	if summary.HasFailure {
-		os.Exit(1)
+		return exitcode.Wrap(exitcode.Generic, fmt.Errorf("one or more doctor checks failed"))
 	}
 	return nil
 }

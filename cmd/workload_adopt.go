@@ -26,6 +26,17 @@ Examples:
 		connected, _ := cmd.Flags().GetBool("connected")
 		tagList, _ := cmd.Flags().GetStringSlice("tag")
 
+		// Validate inputs
+		if err := validateWorkloadName(name); err != nil {
+			return err
+		}
+		if err := validateArchetype(archetype); err != nil {
+			return err
+		}
+		if err := validateAddressSpace(addressSpace); err != nil {
+			return err
+		}
+
 		tags := parseTags(tagList)
 
 		cfgPath := localConfigPath()

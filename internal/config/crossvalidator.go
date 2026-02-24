@@ -38,12 +38,12 @@ func ValidateCross(cfg *LZConfig, repoRoot string) ([]CrossCheck, error) {
 	}
 
 	// State life management checks — state is a critical asset
-	if !cfg.Spec.StateBackend.Versioning {
+	if cfg.Spec.StateBackend.Versioning != nil && !*cfg.Spec.StateBackend.Versioning {
 		add("state-versioning", "warning", "blob versioning is disabled — state history and rollback will not be available; set stateBackend.versioning: true")
 	} else {
 		add("state-versioning", "pass", "blob versioning is enabled for state history and rollback")
 	}
-	if !cfg.Spec.StateBackend.SoftDelete {
+	if cfg.Spec.StateBackend.SoftDelete != nil && !*cfg.Spec.StateBackend.SoftDelete {
 		add("state-soft-delete", "warning", "soft delete is disabled — accidental state deletion will be unrecoverable; set stateBackend.softDelete: true")
 	} else {
 		add("state-soft-delete", "pass", "soft delete is enabled for state protection")

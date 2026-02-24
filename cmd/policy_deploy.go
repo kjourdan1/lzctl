@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -24,7 +23,10 @@ compliance rate is acceptable.
 Updates the workflow state to 'deploy' in workflow.yaml.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name, _ := cmd.Flags().GetString("name")
-		root, _ := filepath.Abs(repoRoot)
+		root, err := absRepoRoot()
+		if err != nil {
+			return err
+		}
 		force, _ := cmd.Flags().GetBool("force")
 
 		if dryRun {
@@ -39,7 +41,7 @@ Updates the workflow state to 'deploy' in workflow.yaml.`,
 			Force:    force,
 		}
 
-		err := policy.Deploy(opts)
+		err = policy.Deploy(opts)
 		if err != nil {
 			return fmt.Errorf("policy deploy failed: %w", err)
 		}

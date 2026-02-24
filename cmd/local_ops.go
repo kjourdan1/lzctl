@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -96,9 +97,6 @@ func parsePlanSummary(output string) (int, int, int) {
 }
 
 func parseInt(v string) int {
-	var n int
-	for _, c := range v {
-		n = n*10 + int(c-'0')
-	}
+	n, _ := strconv.Atoi(strings.TrimSpace(v))
 	return n
 }

@@ -38,7 +38,10 @@ func init() {
 
 func runValidate(cmd *cobra.Command, args []string) error {
 	_ = cmd
-	root, _ := filepath.Abs(repoRoot)
+	root, err := absRepoRoot()
+	if err != nil {
+		return err
+	}
 	configPath := localConfigPath()
 
 	output.Init(verbosity > 0, jsonOutput)

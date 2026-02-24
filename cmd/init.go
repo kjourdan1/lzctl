@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -162,6 +163,18 @@ func validateInitInputs(mgModel, connectivity, identity, cicdPlatform, stateStra
 	return nil
 }
 
+var uuidRegex = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+func validateUUID(name, value string) error {
+	if value == "" {
+		return nil // optional
+	}
+	if !uuidRegex.MatchString(value) {
+		return fmt.Errorf("invalid UUID format for --%s: %q", name, value)
+	}
+	return nil
+}
+
 func runInit(cmd *cobra.Command) error {
 	output.Init(verbosity > 0, jsonOutput)
 
@@ -179,6 +192,14 @@ func runInit(cmd *cobra.Command) error {
 
 	initTenantID = tenantID
 	initSubscriptionID = subscriptionID
+
+	// M1: Validate UUID format for tenant-id and subscription-id
+	if err := validateUUID("tenant-id", tenantID); err != nil {
+		return err
+	}
+	if err := validateUUID("subscription-id", subscriptionID); err != nil {
+		return err
+	}
 
 	if effectiveCIMode() && cfgFile == "" && strings.TrimSpace(fromFile) == "" && tenantID == "" {
 		return fmt.Errorf("--ci mode requires --tenant-id (or LZCTL_TENANT_ID)")

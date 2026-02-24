@@ -44,7 +44,10 @@ func init() {
 }
 
 func runPlan(cmd *cobra.Command, args []string) error {
-	root, _ := filepath.Abs(repoRoot)
+	root, err := absRepoRoot()
+	if err != nil {
+		return err
+	}
 
 	if err := ensureTerraformInstalled(); err != nil {
 		return exitcode.Wrap(exitcode.Validation, err)
@@ -64,8 +67,8 @@ func runPlan(cmd *cobra.Command, args []string) error {
 
 	for _, layer := range layers {
 		dir := filepath.Join(root, "platform", layer)
-		if _, initErr := runTerraformCmd(cmd.Context(), dir, "init", "-input=false", "-no-color"); initErr != nil {
-			return exitcode.Wrap(exitcode.Terraform, fmt.Errorf("layer %s: terraform init failed", layer))
+		if initOut, initErr := runTerraformCmd(cmd.Context(), dir, "init", "-input=false", "-no-color"); initErr != nil {
+			return exitcode.Wrap(exitcode.Terraform, fmt.Errorf("layer %s: terraform init failed: %s", layer, initOut))
 		}
 
 		out, planErr := runTerraformCmd(cmd.Context(), dir, "plan", "-input=false", "-detailed-exitcode", "-no-color")
@@ -83,7 +86,7 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		if planErr != nil {
 			// terraform plan detailed-exitcode returns 2 when changes are present.
 			if strings.Contains(out, "Error:") {
-				return exitcode.Wrap(exitcode.Terraform, fmt.Errorf("layer %s: terraform plan failed", layer))
+				return exitcode.Wrap(exitcode.Terraform, fmt.Errorf("layer %s: terraform plan failed: %s", layer, out))
 			}
 		}
 

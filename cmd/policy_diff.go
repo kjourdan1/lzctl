@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/fatih/color"
@@ -18,7 +17,10 @@ var policyDiffCmd = &cobra.Command{
 repository with the deployed state in Azure. Shows which policies need
 to be created, updated, or deleted.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		root, _ := filepath.Abs(repoRoot)
+		root, err := absRepoRoot()
+		if err != nil {
+			return err
+		}
 
 		opts := policy.DiffOpts{
 			RepoRoot: root,

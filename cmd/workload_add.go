@@ -2,11 +2,17 @@ package cmd
 
 import (
 	"fmt"
+	"regexp"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
 	"github.com/kjourdan1/lzctl/internal/config"
+)
+
+var (
+	kebabCaseRegex    = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+	allowedArchetypes = []string{"corp", "online", "sandbox"}
 )
 
 var workloadAddCmd = &cobra.Command{
@@ -25,6 +31,17 @@ Examples:
 		addressSpace, _ := cmd.Flags().GetString("address-space")
 		connected, _ := cmd.Flags().GetBool("connected")
 		tagList, _ := cmd.Flags().GetStringSlice("tag")
+
+		// Validate inputs
+		if err := validateWorkloadName(name); err != nil {
+			return err
+		}
+		if err := validateArchetype(archetype); err != nil {
+			return err
+		}
+		if err := validateAddressSpace(addressSpace); err != nil {
+			return err
+		}
 
 		tags := parseTags(tagList)
 

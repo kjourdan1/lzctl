@@ -201,7 +201,10 @@ func Test(opts TestOpts) (*TestResult, error) {
 		return nil, fmt.Errorf("parse assignment JSON: %w", err)
 	}
 
-	props, _ := assignment["properties"].(map[string]interface{})
+	props, ok := assignment["properties"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("assignment %q: missing or invalid 'properties' field", opts.Name)
+	}
 	scope, _ := props["scope"].(string)
 	policyDefID, _ := props["policyDefinitionId"].(string)
 	_ = policyDefID // used for future scope validation
@@ -410,7 +413,14 @@ func Deploy(opts DeployOpts) error {
 	// Safety check: verify compliance before enforcing
 	if !opts.Force {
 		workflow, err := loadWorkflow(opts.RepoRoot)
-		if err == nil {
+		if err != nil {
+			// If the file doesn't exist, that's fine — no compliance data yet.
+			// But if the file is corrupted or unreadable, fail loudly to avoid
+			// enforcing a policy without compliance verification.
+			if !os.IsNotExist(err) {
+				return fmt.Errorf("cannot verify compliance (use --force to skip): %w", err)
+			}
+		} else {
 			for _, a := range workflow.Spec.Assignments {
 				if a.Name == opts.Name {
 					if a.Compliance.NonCompliant > 0 {
@@ -440,7 +450,10 @@ func Deploy(opts DeployOpts) error {
 		return fmt.Errorf("parse assignment JSON: %w", err)
 	}
 
-	props, _ := assignment["properties"].(map[string]interface{})
+	props, ok := assignment["properties"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("assignment %q: missing or invalid 'properties' field", opts.Name)
+	}
 	props["enforcementMode"] = "Default"
 
 	// Note: effect parameters (Audit/Deny/etc.) are NOT automatically changed.
@@ -567,6 +580,37 @@ func Diff(opts DiffOpts) (*DiffReport, error) {
 
 // ── Helpers ───────────────────────────────────────────────
 
+// atomicWriteFile writes data to a temp file then renames it to path,
+// ensuring the target file is never left in a partially-written state.
+func atomicWriteFile(path string, data []byte, perm os.FileMode) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, ".lzctl-*.tmp")
+	if err != nil {
+		return fmt.Errorf("creating temp file: %w", err)
+	}
+	tmpPath := tmp.Name()
+
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		os.Remove(tmpPath)
+		return fmt.Errorf("writing temp file: %w", err)
+	}
+	if err := tmp.Chmod(perm); err != nil {
+		tmp.Close()
+		os.Remove(tmpPath)
+		return fmt.Errorf("setting permissions: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("closing temp file: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("renaming temp file: %w", err)
+	}
+	return nil
+}
+
 func loadWorkflow(repoRoot string) (*PolicyWorkflow, error) {
 	path := filepath.Join(repoRoot, "policies", "workflow.yaml")
 	data, err := os.ReadFile(path)
@@ -587,7 +631,7 @@ func saveWorkflow(repoRoot string, wf *PolicyWorkflow) error {
 	if err != nil {
 		return fmt.Errorf("marshal workflow: %w", err)
 	}
-	return os.WriteFile(path, data, 0o644)
+	return atomicWriteFile(path, data, 0o600)
 }
 
 func updateWorkflowState(repoRoot, artifactType, name, state string) error {
@@ -706,7 +750,7 @@ func writeReport(path string, report *VerifyReport) error {
 		return err
 	}
 
-	return os.WriteFile(path, data, 0o644)
+	return atomicWriteFile(path, data, 0o600)
 }
 
 func simulateVerifyReport(name string) *VerifyReport {

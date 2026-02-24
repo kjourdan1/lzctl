@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -23,7 +22,10 @@ Policies with 'audit' or 'deny' effects require manual remediation.
 Updates the workflow state to 'remediate' in workflow.yaml.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name, _ := cmd.Flags().GetString("name")
-		root, _ := filepath.Abs(repoRoot)
+		root, err := absRepoRoot()
+		if err != nil {
+			return err
+		}
 
 		opts := policy.RemediateOpts{
 			RepoRoot: root,

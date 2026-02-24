@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"os"
 
 	"gopkg.in/yaml.v3"
@@ -31,10 +32,19 @@ func AddLandingZone(cfg *LZConfig, zone LandingZone) error {
 		return fmt.Errorf("config cannot be nil")
 	}
 
-	// Check duplicate name.
+	// Check duplicate name and address space overlaps.
 	for _, z := range cfg.Spec.LandingZones {
 		if z.Name == zone.Name {
 			return fmt.Errorf("landing zone %q already exists", zone.Name)
+		}
+		// Check address space overlap if both zones have an address space.
+		if z.AddressSpace != "" && zone.AddressSpace != "" {
+			_, existingNet, err1 := net.ParseCIDR(z.AddressSpace)
+			_, newNet, err2 := net.ParseCIDR(zone.AddressSpace)
+			if err1 == nil && err2 == nil && overlaps(existingNet, newNet) {
+				return fmt.Errorf("landing zone %q address space %s overlaps with existing zone %q (%s)",
+					zone.Name, zone.AddressSpace, z.Name, z.AddressSpace)
+			}
 		}
 	}
 

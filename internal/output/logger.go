@@ -11,9 +11,9 @@ import (
 // Logger is the global styled logger for lzctl.
 // All user-facing output should go through this logger.
 var (
-	logger     *log.Logger
-	loggerOnce sync.Once
-	logLevel   = log.InfoLevel
+	logger   *log.Logger
+	loggerMu sync.Mutex
+	logLevel = log.InfoLevel
 
 	// JSONMode controls whether output should be JSON-formatted.
 	JSONMode bool
@@ -25,7 +25,8 @@ var (
 // Init initializes the global logger with the given settings.
 // Call this once at startup (typically from root command PersistentPreRun).
 func Init(verbose bool, jsonMode bool) {
-	loggerOnce = sync.Once{} // allow re-initialization
+	loggerMu.Lock()
+	defer loggerMu.Unlock()
 	Verbose = verbose
 	JSONMode = jsonMode
 	if verbose {
@@ -33,9 +34,7 @@ func Init(verbose bool, jsonMode bool) {
 	} else {
 		logLevel = log.InfoLevel
 	}
-	loggerOnce.Do(func() {
-		logger = newLogger(os.Stderr)
-	})
+	logger = newLogger(os.Stderr)
 }
 
 func newLogger(w io.Writer) *log.Logger {
@@ -51,9 +50,11 @@ func newLogger(w io.Writer) *log.Logger {
 
 // getLogger returns the global logger, initializing with defaults if needed.
 func getLogger() *log.Logger {
-	loggerOnce.Do(func() {
+	loggerMu.Lock()
+	defer loggerMu.Unlock()
+	if logger == nil {
 		logger = newLogger(os.Stderr)
-	})
+	}
 	return logger
 }
 

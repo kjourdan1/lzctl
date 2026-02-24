@@ -127,9 +127,7 @@ func ValidateScope(ctx context.Context, planFile string, allowedSubscriptions []
 // Full schema: https://developer.hashicorp.com/terraform/internals/json-format
 type planJSON struct {
 	PlannedValues struct {
-		RootModule struct {
-			Resources []planResource `json:"resources"`
-		} `json:"root_module"`
+		RootModule planModule `json:"root_module"`
 	} `json:"planned_values"`
 	Configuration struct {
 		ProviderConfig map[string]struct {
@@ -140,6 +138,11 @@ type planJSON struct {
 			} `json:"expressions"`
 		} `json:"provider_config"`
 	} `json:"configuration"`
+}
+
+type planModule struct {
+	Resources    []planResource `json:"resources"`
+	ChildModules []planModule   `json:"child_modules,omitempty"`
 }
 
 type planResource struct {
@@ -169,7 +172,9 @@ func parsePlanScopeViolations(planJSONBytes []byte, allowed map[string]bool) ([]
 	}
 
 	// Check resource-level subscription_id values (some resources embed it)
-	for _, res := range plan.PlannedValues.RootModule.Resources {
+	// Recursively collect resources from root module and all child modules
+	allResources := collectResources(plan.PlannedValues.RootModule)
+	for _, res := range allResources {
 		if subIDVal, ok := res.Values["subscription_id"]; ok {
 			if subID, ok := subIDVal.(string); ok && subID != "" {
 				if !allowed[strings.ToLower(subID)] {
@@ -183,6 +188,15 @@ func parsePlanScopeViolations(planJSONBytes []byte, allowed map[string]bool) ([]
 	}
 
 	return violations, nil
+}
+
+// collectResources recursively gathers resources from a module and all child modules.
+func collectResources(mod planModule) []planResource {
+	resources := append([]planResource{}, mod.Resources...)
+	for _, child := range mod.ChildModules {
+		resources = append(resources, collectResources(child)...)
+	}
+	return resources
 }
 
 // sha256File computes the hex-encoded SHA256 hash of a file.

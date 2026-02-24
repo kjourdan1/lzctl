@@ -45,7 +45,10 @@ func init() {
 }
 
 func runRollback(cmd *cobra.Command, args []string) error {
-	root, _ := filepath.Abs(repoRoot)
+	root, err := absRepoRoot()
+	if err != nil {
+		return err
+	}
 
 	if effectiveCIMode() && !rollbackAutoApprove && !dryRun {
 		return exitcode.Wrap(exitcode.Validation, fmt.Errorf("--ci mode requires --auto-approve for rollback"))
@@ -98,9 +101,9 @@ func runRollback(cmd *cobra.Command, args []string) error {
 		start := time.Now()
 		lr := layerResult{Layer: layer}
 
-		if _, initErr := runTerraformCmd(cmd.Context(), dir, "init", "-input=false", "-no-color"); initErr != nil {
+		if initOut, initErr := runTerraformCmd(cmd.Context(), dir, "init", "-input=false", "-no-color"); initErr != nil {
 			lr.Status = "failed"
-			lr.Error = "terraform init failed"
+			lr.Error = fmt.Sprintf("terraform init failed: %s", initOut)
 			lr.Duration = time.Since(start).Round(time.Millisecond).String()
 			results = append(results, lr)
 			color.New(color.FgRed).Fprintf(os.Stderr, "   ❌ %s: init failed\n", layer)
@@ -117,12 +120,12 @@ func runRollback(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
-		if _, applyErr := runTerraformCmd(cmd.Context(), dir, "apply", "-auto-approve", "-input=false", "-no-color"); applyErr != nil {
+		if applyOut, applyErr := runTerraformCmd(cmd.Context(), dir, "apply", "-auto-approve", "-input=false", "-no-color"); applyErr != nil {
 			lr.Status = "failed"
 			lr.Error = "terraform apply failed"
 			lr.Duration = time.Since(start).Round(time.Millisecond).String()
 			color.New(color.FgRed).Fprintf(os.Stderr, "   ❌ %s (%s): apply failed\n", layer, lr.Duration)
-			return exitcode.Wrap(exitcode.Terraform, fmt.Errorf("rollback layer %s: terraform apply failed", layer))
+			return exitcode.Wrap(exitcode.Terraform, fmt.Errorf("rollback layer %s: terraform apply failed: %s", layer, applyOut))
 		}
 
 		lr.Status = "ok"

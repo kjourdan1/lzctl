@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -26,7 +25,10 @@ Examples:
 		category, _ := cmd.Flags().GetString("category")
 		scope, _ := cmd.Flags().GetString("scope")
 		initiative, _ := cmd.Flags().GetString("initiative")
-		root, _ := filepath.Abs(repoRoot)
+		root, err := absRepoRoot()
+		if err != nil {
+			return err
+		}
 
 		if name == "" {
 			return fmt.Errorf("--name is required")

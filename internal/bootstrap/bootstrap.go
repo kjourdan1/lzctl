@@ -419,6 +419,7 @@ func createSPNWithCustomRole(opts Options, result *Result) error {
 			{"github-env-wave2", fmt.Sprintf("repo:%s/%s:environment:wave2", opts.GitHubOrg, opts.GitHubRepo)},
 		}
 
+		var oidcErrors []string
 		for _, cfg := range oidcConfigs {
 			fedCred := map[string]interface{}{
 				"name":      cfg.name,
@@ -428,28 +429,41 @@ func createSPNWithCustomRole(opts Options, result *Result) error {
 			}
 			credJSON, err := json.Marshal(fedCred)
 			if err != nil {
+				oidcErrors = append(oidcErrors, fmt.Sprintf("%s: json marshal: %v", cfg.name, err))
 				continue
 			}
 
 			tmpCred, err := os.CreateTemp("", "lzctl-oidc-*.json")
 			if err != nil {
+				oidcErrors = append(oidcErrors, fmt.Sprintf("%s: create temp file: %v", cfg.name, err))
 				continue
 			}
 			if _, err := tmpCred.Write(credJSON); err != nil {
 				_ = tmpCred.Close()
 				_ = os.Remove(tmpCred.Name())
+				oidcErrors = append(oidcErrors, fmt.Sprintf("%s: write temp file: %v", cfg.name, err))
 				continue
 			}
 			if err := tmpCred.Close(); err != nil {
 				_ = os.Remove(tmpCred.Name())
+				oidcErrors = append(oidcErrors, fmt.Sprintf("%s: close temp file: %v", cfg.name, err))
 				continue
 			}
 
-			_ = runAz(opts.Verbosity, "ad", "app", "federated-credential", "create",
-				"--id", result.SPNAppID, "--parameters", tmpCred.Name())
+			if err := runAz(opts.Verbosity, "ad", "app", "federated-credential", "create",
+				"--id", result.SPNAppID, "--parameters", tmpCred.Name()); err != nil {
+				oidcErrors = append(oidcErrors, fmt.Sprintf("%s: az federated-credential create: %v", cfg.name, err))
+			}
 			_ = os.Remove(tmpCred.Name())
 		}
-		fmt.Fprintf(os.Stderr, "   ✅ OIDC federated credentials configured for %s/%s\n", opts.GitHubOrg, opts.GitHubRepo)
+		if len(oidcErrors) > 0 {
+			fmt.Fprintf(os.Stderr, "   ⚠️  Some OIDC federated credentials failed:\n")
+			for _, e := range oidcErrors {
+				fmt.Fprintf(os.Stderr, "      - %s\n", e)
+			}
+		} else {
+			fmt.Fprintf(os.Stderr, "   ✅ OIDC federated credentials configured for %s/%s\n", opts.GitHubOrg, opts.GitHubRepo)
+		}
 	}
 
 	return nil

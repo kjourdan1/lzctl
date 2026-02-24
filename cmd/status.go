@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/fatih/color"
@@ -38,7 +37,10 @@ func init() {
 func runStatus(cmd *cobra.Command, args []string) error {
 	output.Init(verbosity > 0, jsonOutput)
 
-	root, _ := filepath.Abs(repoRoot)
+	root, err := absRepoRoot()
+	if err != nil {
+		return err
+	}
 
 	// Load project metadata from lzctl.yaml.
 	cfgPath := localConfigPath()

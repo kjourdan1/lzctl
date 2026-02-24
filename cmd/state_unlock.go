@@ -1,7 +1,10 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/kjourdan1/lzctl/internal/config"
 	"github.com/kjourdan1/lzctl/internal/output"
@@ -36,6 +39,17 @@ func init() {
 
 func runStateUnlock(cmd *cobra.Command, _ []string) error {
 	output.Init(verbosity > 0, jsonOutput)
+
+	// M5: Require confirmation before breaking lease (destructive operation)
+	if !effectiveCIMode() {
+		fmt.Printf("⚠️  You are about to force-break the lease on %q.\n", unlockStateKey)
+		fmt.Print("Type 'yes' to confirm: ")
+		reader := bufio.NewReader(os.Stdin)
+		answer, _ := reader.ReadString('\n')
+		if strings.TrimSpace(answer) != "yes" {
+			return fmt.Errorf("cancelled by user")
+		}
+	}
 
 	cfg, err := config.Load(localConfigPath())
 	if err != nil {

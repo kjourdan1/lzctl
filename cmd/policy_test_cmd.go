@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -19,7 +18,10 @@ This allows you to see compliance data without blocking any deployments.
 The assignment's workflow state is updated to 'test' in workflow.yaml.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name, _ := cmd.Flags().GetString("name")
-		root, _ := filepath.Abs(repoRoot)
+		root, err := absRepoRoot()
+		if err != nil {
+			return err
+		}
 
 		opts := policy.TestOpts{
 			RepoRoot: root,

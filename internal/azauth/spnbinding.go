@@ -98,9 +98,10 @@ func ValidateSPNBinding(cfg *config.LZConfig) error {
 func ValidateJWTBinding(rawToken string, cfg *config.LZConfig) error {
 	claims, err := decodeJWTClaims(rawToken)
 	if err != nil {
-		// Non-fatal: JWT decoding failure should not block operations (degraded mode)
-		fmt.Fprintf(os.Stderr, "⚠️  SEC1: JWT claim validation skipped (could not decode token): %v\n", err)
-		return nil
+		// Fail-closed: if we cannot decode the JWT, we cannot validate
+		// the tenant/SPN binding. Return an error to prevent cross-tenant
+		// operations with an unverifiable token.
+		return fmt.Errorf("SEC1_JWT_DECODE_FAILED: could not decode token for binding validation: %w", err)
 	}
 
 	// 1. Validate 'tid' claim — tenant ID

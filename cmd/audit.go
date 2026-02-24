@@ -39,7 +39,10 @@ func init() {
 
 func runAudit(cmd *cobra.Command, args []string) error {
 	_ = args
-	root, _ := filepath.Abs(repoRoot)
+	root, err := absRepoRoot()
+	if err != nil {
+		return err
+	}
 
 	bold := color.New(color.Bold)
 	green := color.New(color.FgGreen, color.Bold)

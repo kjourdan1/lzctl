@@ -4,6 +4,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -85,4 +86,15 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil && verbosity > 0 {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
 	}
+}
+
+// absRepoRoot returns the absolute path to the repo root, or an error if
+// the path cannot be resolved. This replaces the previous pattern of
+// `root, _ := filepath.Abs(repoRoot)` which silently ignored errors.
+func absRepoRoot() (string, error) {
+	root, err := filepath.Abs(repoRoot)
+	if err != nil {
+		return "", fmt.Errorf("resolving repo root %q: %w", repoRoot, err)
+	}
+	return root, nil
 }

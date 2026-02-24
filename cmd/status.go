@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -130,21 +132,24 @@ type gitInfoResult struct {
 func getGitInfo(repoDir string) *gitInfoResult {
 	info := &gitInfoResult{}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	// Get current branch.
-	branchOut, err := exec.Command("git", "-C", repoDir, "rev-parse", "--abbrev-ref", "HEAD").Output()
+	branchOut, err := exec.CommandContext(ctx, "git", "-C", repoDir, "rev-parse", "--abbrev-ref", "HEAD").Output()
 	if err != nil {
 		return nil // Not a Git repo.
 	}
 	info.Branch = strings.TrimSpace(string(branchOut))
 
 	// Get last commit.
-	commitOut, err := exec.Command("git", "-C", repoDir, "log", "-1", "--format=%h %s (%cr)").Output()
+	commitOut, err := exec.CommandContext(ctx, "git", "-C", repoDir, "log", "-1", "--format=%h %s (%cr)").Output()
 	if err == nil {
 		info.LastCommit = strings.TrimSpace(string(commitOut))
 	}
 
 	// Check dirty state.
-	statusOut, err := exec.Command("git", "-C", repoDir, "status", "--porcelain").Output()
+	statusOut, err := exec.CommandContext(ctx, "git", "-C", repoDir, "status", "--porcelain").Output()
 	if err == nil {
 		info.Dirty = len(strings.TrimSpace(string(statusOut))) > 0
 	}

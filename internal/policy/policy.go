@@ -41,11 +41,13 @@ type PolicyWorkflow struct {
 	Spec       WorkflowSpec `yaml:"spec"`
 }
 
+// WorkflowMeta holds the metadata section of a policy workflow file.
 type WorkflowMeta struct {
 	Name   string `yaml:"name"`
 	Tenant string `yaml:"tenant"`
 }
 
+// WorkflowSpec holds the lifecycle state of all policy artifacts.
 type WorkflowSpec struct {
 	Definitions []DefinitionState `yaml:"definitions"`
 	Initiatives []InitiativeState `yaml:"initiatives"`
@@ -53,18 +55,21 @@ type WorkflowSpec struct {
 	Exemptions  []ExemptionState  `yaml:"exemptions"`
 }
 
+// DefinitionState tracks the lifecycle state of a single policy definition.
 type DefinitionState struct {
 	Name        string `yaml:"name"`
 	State       string `yaml:"state"`
 	LastUpdated string `yaml:"lastUpdated"`
 }
 
+// InitiativeState tracks the lifecycle state of a policy initiative (policy set).
 type InitiativeState struct {
 	Name        string `yaml:"name"`
 	State       string `yaml:"state"`
 	LastUpdated string `yaml:"lastUpdated"`
 }
 
+// AssignmentState tracks a policy assignment including its compliance status and remediation tasks.
 type AssignmentState struct {
 	Name             string           `yaml:"name"`
 	Scope            string           `yaml:"scope"`
@@ -77,6 +82,7 @@ type AssignmentState struct {
 	RemediationTasks []RemediationRef `yaml:"remediationTasks"`
 }
 
+// ComplianceState holds the compliance summary for a policy assignment.
 type ComplianceState struct {
 	Evaluated    int    `yaml:"evaluated"`
 	Compliant    int    `yaml:"compliant"`
@@ -85,6 +91,7 @@ type ComplianceState struct {
 	LastScan     string `yaml:"lastScan"`
 }
 
+// RemediationRef references a remediation task and its execution status.
 type RemediationRef struct {
 	TaskID              string `yaml:"taskId"`
 	Status              string `yaml:"status"`
@@ -93,6 +100,7 @@ type RemediationRef struct {
 	ResourcesRemediated int    `yaml:"resourcesRemediated"`
 }
 
+// ExemptionState tracks a policy exemption with its expiry and approval reference.
 type ExemptionState struct {
 	Name       string `yaml:"name"`
 	Assignment string `yaml:"assignment"`
@@ -104,6 +112,7 @@ type ExemptionState struct {
 
 // ── Create ────────────────────────────────────────────────
 
+// CreateOpts configures the creation of a new policy artifact (definition, initiative, assignment, or exemption).
 type CreateOpts struct {
 	RepoRoot   string
 	Type       string // definition, initiative, assignment, exemption
@@ -171,6 +180,7 @@ func Create(opts CreateOpts) (string, error) {
 
 // ── Test ──────────────────────────────────────────────────
 
+// TestOpts configures a test deployment of a policy assignment in DoNotEnforce mode.
 type TestOpts struct {
 	RepoRoot string
 	Tenant   string
@@ -178,6 +188,7 @@ type TestOpts struct {
 	DryRun   bool
 }
 
+// TestResult holds the outcome of a test deployment.
 type TestResult struct {
 	Scope      string
 	Initiative string
@@ -241,6 +252,7 @@ func Test(opts TestOpts) (*TestResult, error) {
 
 // ── Verify ────────────────────────────────────────────────
 
+// VerifyOpts configures a compliance verification query.
 type VerifyOpts struct {
 	RepoRoot string
 	Tenant   string
@@ -248,6 +260,7 @@ type VerifyOpts struct {
 	Output   string
 }
 
+// VerifyReport holds the compliance summary for a policy assignment.
 type VerifyReport struct {
 	AssignmentName     string              `json:"assignmentName" yaml:"assignmentName"`
 	Scope              string              `json:"scope" yaml:"scope"`
@@ -261,6 +274,7 @@ type VerifyReport struct {
 	Simulated          bool                `json:"simulated,omitempty" yaml:"simulated,omitempty"`
 }
 
+// NonCompliantGroup aggregates non-compliant resources for a single policy within an assignment.
 type NonCompliantGroup struct {
 	PolicyName string   `json:"policyName" yaml:"policyName"`
 	Count      int      `json:"count" yaml:"count"`
@@ -327,6 +341,7 @@ func Verify(opts VerifyOpts) (*VerifyReport, error) {
 
 // ── Remediate ─────────────────────────────────────────────
 
+// RemediateOpts configures the creation of remediation tasks for non-compliant resources.
 type RemediateOpts struct {
 	RepoRoot string
 	Tenant   string
@@ -334,11 +349,13 @@ type RemediateOpts struct {
 	DryRun   bool
 }
 
+// RemediateResult holds the outcome of a remediation operation.
 type RemediateResult struct {
 	TaskCount int
 	Tasks     []RemediationTask
 }
 
+// RemediationTask represents a single policy remediation task targeting non-compliant resources.
 type RemediationTask struct {
 	Name          string `json:"name" yaml:"name"`
 	PolicyName    string `json:"policyName" yaml:"policyName"`
@@ -401,6 +418,7 @@ func Remediate(opts RemediateOpts) (*RemediateResult, error) {
 
 // ── Deploy ────────────────────────────────────────────────
 
+// DeployOpts configures the enforcement of a policy assignment (switches from DoNotEnforce to Default).
 type DeployOpts struct {
 	RepoRoot string
 	Tenant   string

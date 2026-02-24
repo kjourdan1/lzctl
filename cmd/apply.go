@@ -85,7 +85,7 @@ func runApply(cmd *cobra.Command, args []string) error {
 	for _, layer := range layers {
 		dir := filepath.Join(root, "platform", layer)
 		if initOut, initErr := runTerraformCmd(cmd.Context(), dir, "init", "-input=false", "-no-color"); initErr != nil {
-			return exitcode.Wrap(exitcode.Terraform, fmt.Errorf("layer %s: terraform init failed: %s", layer, initOut))
+			return exitcode.Wrap(exitcode.Terraform, fmt.Errorf("layer %s: terraform init failed (output: %s): %w", layer, initOut, initErr))
 		}
 
 		if dryRun {
@@ -93,14 +93,14 @@ func runApply(cmd *cobra.Command, args []string) error {
 			add, change, destroy := parsePlanSummary(out)
 			fmt.Fprintf(os.Stderr, "   ⚡ %-20s +%d ~%d -%d (dry-run)\n", layer, add, change, destroy)
 			if planErr != nil && strings.Contains(out, "Error:") {
-				return exitcode.Wrap(exitcode.Terraform, fmt.Errorf("layer %s: terraform plan failed: %s", layer, out))
+				return exitcode.Wrap(exitcode.Terraform, fmt.Errorf("layer %s: terraform plan failed (output: %s): %w", layer, out, planErr))
 			}
 			continue
 		}
 
 		if applyOut, applyErr := runTerraformCmd(cmd.Context(), dir, "apply", "-auto-approve", "-input=false", "-no-color"); applyErr != nil {
 			color.New(color.FgRed).Fprintf(os.Stderr, "   ❌ %-20s failed\n", layer)
-			return exitcode.Wrap(exitcode.Terraform, fmt.Errorf("layer %s: terraform apply failed: %s", layer, applyOut))
+			return exitcode.Wrap(exitcode.Terraform, fmt.Errorf("layer %s: terraform apply failed (output: %s): %w", layer, applyOut, applyErr))
 		}
 		color.New(color.FgGreen).Fprintf(os.Stderr, "   ✅ %-20s applied\n", layer)
 	}

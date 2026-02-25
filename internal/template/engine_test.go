@@ -521,3 +521,176 @@ func TestWriteAll_Write(t *testing.T) {
 	require.NoError(t, readErr)
 	assert.Equal(t, "hello", string(data))
 }
+
+func TestRenderTests_Disabled(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	cfg := sampleConfig()
+	// testing is nil by default in sampleConfig
+	files, err := engine.RenderTests(cfg)
+	require.NoError(t, err)
+	assert.Nil(t, files)
+}
+
+func TestRenderTests_DisabledExplicit(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	cfg := sampleConfig()
+	cfg.Spec.Testing = &config.Testing{Enabled: false}
+	files, err := engine.RenderTests(cfg)
+	require.NoError(t, err)
+	assert.Nil(t, files)
+}
+
+func TestRenderTests_Enabled_NoAssertions(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	cfg := sampleConfig()
+	cfg.Spec.Testing = &config.Testing{Enabled: true}
+
+	files, err := engine.RenderTests(cfg)
+	require.NoError(t, err)
+	// 5 platform layers, no landing zones
+	assert.Len(t, files, 5)
+
+	paths := map[string]string{}
+	for _, f := range files {
+		paths[f.Path] = f.Content
+	}
+	assert.Contains(t, paths, filepath.ToSlash(filepath.Join("platform", "management-groups", "testing.tftest.hcl")))
+	assert.Contains(t, paths, filepath.ToSlash(filepath.Join("platform", "connectivity", "testing.tftest.hcl")))
+	assert.Contains(t, paths, filepath.ToSlash(filepath.Join("platform", "management", "testing.tftest.hcl")))
+
+	// Every file must contain the smoke test
+	for _, f := range files {
+		assert.Contains(t, f.Content, `run "smoke_plan"`, "file %s missing smoke_plan run block", f.Path)
+		assert.Contains(t, f.Content, "command = plan")
+	}
+}
+
+func TestRenderTests_Enabled_WithAssertions(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	cfg := sampleConfig()
+	cfg.Spec.Testing = &config.Testing{
+		Enabled: true,
+		Assertions: []config.TestAssertion{
+			{
+				Name:         "log_retention_90_days",
+				Layer:        "management",
+				Condition:    "azurerm_log_analytics_workspace.this.retention_in_days == 90",
+				ErrorMessage: "Log Analytics retention must be 90 days",
+			},
+			{
+				Name:         "smoke_all",
+				Layer:        "*",
+				Condition:    "true",
+				ErrorMessage: "all layers must plan",
+			},
+		},
+	}
+
+	files, err := engine.RenderTests(cfg)
+	require.NoError(t, err)
+	assert.Len(t, files, 5)
+
+	paths := map[string]string{}
+	for _, f := range files {
+		paths[f.Path] = f.Content
+	}
+
+	mgmtPath := filepath.ToSlash(filepath.Join("platform", "management", "testing.tftest.hcl"))
+	mgmtContent := paths[mgmtPath]
+	// management layer gets its specific assertion + the wildcard one
+	assert.Contains(t, mgmtContent, `run "log_retention_90_days"`)
+	assert.Contains(t, mgmtContent, "retention_in_days == 90")
+	assert.Contains(t, mgmtContent, `run "smoke_all"`)
+
+	// management-groups gets only the wildcard assertion
+	mgPath := filepath.ToSlash(filepath.Join("platform", "management-groups", "testing.tftest.hcl"))
+	assert.NotContains(t, paths[mgPath], `run "log_retention_90_days"`)
+	assert.Contains(t, paths[mgPath], `run "smoke_all"`)
+}
+
+func TestRenderTests_Enabled_WithLandingZones(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	cfg := sampleConfig()
+	cfg.Spec.LandingZones = []config.LandingZone{
+		{Name: "lz-corp", Archetype: "corp", AddressSpace: "10.1.0.0/16"},
+		{Name: "lz-online", Archetype: "online", AddressSpace: "10.2.0.0/16"},
+	}
+	cfg.Spec.Testing = &config.Testing{
+		Enabled: true,
+		Assertions: []config.TestAssertion{
+			{Name: "universal", Layer: "*", Condition: "true", ErrorMessage: "should pass"},
+		},
+	}
+
+	files, err := engine.RenderTests(cfg)
+	require.NoError(t, err)
+	// 5 platform layers + 2 landing zones
+	assert.Len(t, files, 7)
+
+	paths := map[string]string{}
+	for _, f := range files {
+		paths[f.Path] = f.Content
+	}
+	assert.Contains(t, paths, filepath.ToSlash(filepath.Join("landing-zones", "lz-corp", "testing.tftest.hcl")))
+	assert.Contains(t, paths, filepath.ToSlash(filepath.Join("landing-zones", "lz-online", "testing.tftest.hcl")))
+
+	lzContent := paths[filepath.ToSlash(filepath.Join("landing-zones", "lz-corp", "testing.tftest.hcl"))]
+	assert.Contains(t, lzContent, "lz-corp")
+	assert.Contains(t, lzContent, `run "smoke_plan"`)
+}
+
+func TestRenderAll_WithTesting_AddsTestFiles(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	cfg := sampleConfig()
+	cfg.Spec.Testing = &config.Testing{Enabled: true}
+
+	files, err := engine.RenderAll(cfg)
+	require.NoError(t, err)
+
+	// Base 22 files + 5 test files (no connectivity layer in none mode, but RenderTests always generates 5)
+	paths := map[string]bool{}
+	for _, f := range files {
+		paths[f.Path] = true
+	}
+	assert.True(t, paths[filepath.ToSlash(filepath.Join("platform", "management", "testing.tftest.hcl"))])
+	assert.True(t, paths[filepath.ToSlash(filepath.Join("platform", "connectivity", "testing.tftest.hcl"))])
+	assert.True(t, paths[filepath.ToSlash(filepath.Join("platform", "management-groups", "testing.tftest.hcl"))])
+}
+
+func TestFilterAssertions(t *testing.T) {
+	assertions := []config.TestAssertion{
+		{Name: "a", Layer: "management"},
+		{Name: "b", Layer: "*"},
+		{Name: "c", Layer: "connectivity"},
+	}
+
+	t.Run("specific_layer", func(t *testing.T) {
+		result := filterAssertions(assertions, "management")
+		assert.Len(t, result, 2) // "a" + "b"
+		assert.Equal(t, "a", result[0].Name)
+		assert.Equal(t, "b", result[1].Name)
+	})
+
+	t.Run("wildcard_only", func(t *testing.T) {
+		result := filterAssertions(assertions, "identity")
+		assert.Len(t, result, 1) // only "b"
+		assert.Equal(t, "b", result[0].Name)
+	})
+
+	t.Run("empty_assertions", func(t *testing.T) {
+		result := filterAssertions(nil, "management")
+		assert.Nil(t, result)
+	})
+}

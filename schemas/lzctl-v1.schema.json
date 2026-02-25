@@ -67,6 +67,9 @@
         },
         "cicd": {
           "$ref": "#/definitions/CICD"
+        },
+        "testing": {
+          "$ref": "#/definitions/Testing"
         }
       },
       "additionalProperties": false
@@ -328,6 +331,50 @@
             "requirePR": { "type": "boolean" }
           },
           "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "Testing": {
+      "type": "object",
+      "description": "Native Terraform test generation settings (terraform test, HCL)",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Generate .tftest.hcl files for all platform layers and landing zones"
+        },
+        "assertions": {
+          "type": "array",
+          "description": "Custom assertions rendered as run blocks in .tftest.hcl files",
+          "items": {
+            "$ref": "#/definitions/TestAssertion"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "TestAssertion": {
+      "type": "object",
+      "required": ["name", "layer", "condition", "errorMessage"],
+      "description": "A single assertion rendered as a run block in a .tftest.hcl file",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Identifier for the run block (snake_case)"
+        },
+        "layer": {
+          "type": "string",
+          "description": "Target layer: platform layer name (e.g. 'connectivity') or '*' for all layers"
+        },
+        "condition": {
+          "type": "string",
+          "description": "HCL expression that must evaluate to true"
+        },
+        "errorMessage": {
+          "type": "string",
+          "description": "Message shown when the assertion fails"
         }
       },
       "additionalProperties": false

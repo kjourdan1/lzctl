@@ -1,0 +1,52 @@
+apiVersion: lzctl/v1
+kind: LandingZone
+metadata:
+  name: contoso-test
+  tenant: contoso.onmicrosoft.com
+  primaryRegion: westeurope
+spec:
+  platform:
+    managementGroups:
+      model: caf-standard
+    connectivity:
+      type: none
+    identity:
+      type: workload-identity-federation
+    management:
+      logAnalytics:
+        retentionDays: 90
+        solutions: []
+      automationAccount: false
+      defenderForCloud:
+        enabled: true
+        plans: []
+  governance:
+    policies:
+      assignments: []
+  naming:
+    convention: caf
+  stateBackend:
+    resourceGroup: rg-lzctl-state
+    storageAccount: stlzctlstate
+    container: tfstate
+    subscription: 00000000-0000-0000-0000-000000000000
+  cicd:
+    platform: github-actions
+    branchPolicy:
+      mainBranch: main
+      requirePR: true
+  testing:
+    enabled: true
+    assertions:
+      - name: log_retention_90_days
+        layer: management
+        condition: azurerm_log_analytics_workspace.this.retention_in_days == 90
+        errorMessage: "Log Analytics workspace retention must be 90 days"
+      - name: defender_enabled
+        layer: management
+        condition: azurerm_security_center_subscription_pricing.this.tier == "Standard"
+        errorMessage: "Defender for Cloud must be enabled on Standard tier"
+      - name: smoke_all_layers
+        layer: "*"
+        condition: true
+        errorMessage: "All layers must plan successfully"

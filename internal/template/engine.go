@@ -174,6 +174,12 @@ func (e *Engine) RenderAll(cfg *config.LZConfig) ([]RenderedFile, error) {
 		})
 	}
 
+	testFiles, err := e.RenderTests(cfg)
+	if err != nil {
+		return nil, err
+	}
+	files = append(files, testFiles...)
+
 	return files, nil
 }
 
@@ -471,6 +477,64 @@ func blueprintOverridesJSON(overrides map[string]any) string {
 		return "{}"
 	}
 	return string(b)
+}
+
+// RenderTests generates .tftest.hcl files for all platform layers and landing zones.
+// Returns nil without error when testing is disabled or not configured.
+func (e *Engine) RenderTests(cfg *config.LZConfig) ([]RenderedFile, error) {
+	if cfg == nil || cfg.Spec.Testing == nil || !cfg.Spec.Testing.Enabled {
+		return nil, nil
+	}
+
+	platformLayers := []string{"management-groups", "identity", "management", "governance", "connectivity"}
+	files := make([]RenderedFile, 0, len(platformLayers)+len(cfg.Spec.LandingZones))
+
+	for _, layer := range platformLayers {
+		assertions := filterAssertions(cfg.Spec.Testing.Assertions, layer)
+		ctx := map[string]interface{}{
+			"Config":     cfg,
+			"Layer":      layer,
+			"Assertions": assertions,
+		}
+		content, err := e.renderTemplate("tests/layer.tftest.hcl.tmpl", ctx)
+		if err != nil {
+			return nil, fmt.Errorf("rendering test for layer %s: %w", layer, err)
+		}
+		files = append(files, RenderedFile{
+			Path:    filepath.ToSlash(filepath.Join("platform", layer, "testing.tftest.hcl")),
+			Content: content,
+		})
+	}
+
+	for _, zone := range cfg.Spec.LandingZones {
+		assertions := filterAssertions(cfg.Spec.Testing.Assertions, "*")
+		ctx := map[string]interface{}{
+			"Config":     cfg,
+			"Zone":       zone,
+			"Assertions": assertions,
+		}
+		content, err := e.renderTemplate("tests/zone.tftest.hcl.tmpl", ctx)
+		if err != nil {
+			return nil, fmt.Errorf("rendering test for zone %s: %w", zone.Name, err)
+		}
+		files = append(files, RenderedFile{
+			Path:    filepath.ToSlash(filepath.Join("landing-zones", Slugify(zone.Name), "testing.tftest.hcl")),
+			Content: content,
+		})
+	}
+
+	return files, nil
+}
+
+// filterAssertions returns assertions whose Layer matches the given target or "*".
+func filterAssertions(assertions []config.TestAssertion, target string) []config.TestAssertion {
+	var filtered []config.TestAssertion
+	for _, a := range assertions {
+		if a.Layer == "*" || a.Layer == target {
+			filtered = append(filtered, a)
+		}
+	}
+	return filtered
 }
 
 // RenderZone renders templates for a single landing zone only.

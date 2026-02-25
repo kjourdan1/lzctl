@@ -21,6 +21,17 @@ steps:
         fi
       done
     displayName: Terraform validate platform layers
+{{ if and .Config.Spec.Testing .Config.Spec.Testing.Enabled }}
+  - script: |
+      set -euo pipefail
+      for d in platform/management-groups platform/identity platform/management platform/governance platform/connectivity; do
+        [ -d "$d" ] || continue
+        [ -f "$d/testing.tftest.hcl" ] || continue
+        echo "═══ Testing: $d ═══"
+        terraform -chdir="$d" test -no-color
+      done
+    displayName: Terraform test platform layers
+{{ end }}
 {{ if .Config.Spec.LandingZones }}
   # Landing zones + blueprints
   - script: |
@@ -32,4 +43,15 @@ steps:
         fi
       done
     displayName: Terraform validate landing zones and blueprints
+{{ if and $.Config.Spec.Testing $.Config.Spec.Testing.Enabled }}
+  - script: |
+      set -euo pipefail
+      for d in {{ range .Config.Spec.LandingZones }}landing-zones/{{ .Name | slugify }} {{ end }}; do
+        [ -d "$d" ] || continue
+        [ -f "$d/testing.tftest.hcl" ] || continue
+        echo "═══ Testing: $d ═══"
+        terraform -chdir="$d" test -no-color
+      done
+    displayName: Terraform test landing zones
+{{ end }}
 {{ end }}

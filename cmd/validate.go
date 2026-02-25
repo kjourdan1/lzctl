@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -101,6 +102,20 @@ func runValidate(cmd *cobra.Command, args []string) error {
 					checks = append(checks, check{Name: "terraform-" + layer, Status: "error", Message: "terraform validate failed"})
 				} else {
 					checks = append(checks, check{Name: "terraform-" + layer, Status: "pass", Message: "terraform validate passed"})
+				}
+
+				// terraform test — only when .tftest.hcl is present (generated when testing.enabled: true)
+				testFile := filepath.Join(dir, "testing.tftest.hcl")
+				if fileExistsLocal(testFile) {
+					if testOut, testErr := runTerraformCmd(cmd.Context(), dir, "test", "-no-color"); testErr != nil {
+						if strings.Contains(testOut, "Unrecognized command") || strings.Contains(testOut, "unrecognized command") {
+							checks = append(checks, check{Name: "tftest-" + layer, Status: "warning", Message: "terraform test requires Terraform >= 1.6 (skipped)"})
+						} else {
+							checks = append(checks, check{Name: "tftest-" + layer, Status: "error", Message: "terraform test failed"})
+						}
+					} else {
+						checks = append(checks, check{Name: "tftest-" + layer, Status: "pass", Message: "terraform test passed"})
+					}
 				}
 			}
 		}

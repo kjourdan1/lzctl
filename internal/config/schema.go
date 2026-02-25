@@ -27,6 +27,24 @@ type Spec struct {
 	StateBackend StateBackend  `yaml:"stateBackend" json:"stateBackend"`
 	LandingZones []LandingZone `yaml:"landingZones" json:"landingZones"`
 	CICD         CICD          `yaml:"cicd" json:"cicd"`
+	Testing      *Testing      `yaml:"testing,omitempty" json:"testing,omitempty"`
+}
+
+// Testing holds native Terraform test generation settings.
+// When enabled, lzctl generates .tftest.hcl files for each platform layer
+// and landing zone, validated by `terraform test` in plan mode.
+type Testing struct {
+	Enabled    bool            `yaml:"enabled" json:"enabled"`
+	Assertions []TestAssertion `yaml:"assertions,omitempty" json:"assertions,omitempty"`
+}
+
+// TestAssertion defines a single assertion rendered as a `run` block in a .tftest.hcl file.
+// Layer may be a platform layer name (e.g. "connectivity"), or "*" to apply to all layers.
+type TestAssertion struct {
+	Name         string `yaml:"name" json:"name"`
+	Layer        string `yaml:"layer" json:"layer"`
+	Condition    string `yaml:"condition" json:"condition"`
+	ErrorMessage string `yaml:"errorMessage" json:"errorMessage"`
 }
 
 // Platform holds the platform-level configuration (MG, connectivity, identity, management).

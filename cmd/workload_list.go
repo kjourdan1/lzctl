@@ -6,8 +6,6 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-
-	"github.com/kjourdan1/lzctl/internal/config"
 )
 
 var workloadListCmd = &cobra.Command{
@@ -19,8 +17,7 @@ archetype, subscription, and connectivity status.
 Examples:
   lzctl workload list`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfgPath := localConfigPath()
-		cfg, err := config.Load(cfgPath)
+		cfg, err := configCache()
 		if err != nil {
 			return fmt.Errorf("load config: %w (run lzctl init first)", err)
 		}

@@ -60,8 +60,7 @@ func runSelect(cmd *cobra.Command, args []string) error {
 	green := color.New(color.FgGreen)
 
 	// Show current project profile if lzctl.yaml exists.
-	cfgPath := localConfigPath()
-	cfg, _ := config.Load(cfgPath)
+	cfg, _ := configCache()
 
 	bold.Fprintln(os.Stderr, "📋 Available CAF Platform Layers:")
 	fmt.Fprintln(os.Stderr)

@@ -16,6 +16,10 @@ import (
 
 // executeCommand runs a CLI command and captures output.
 func executeCommand(args ...string) (string, string, error) {
+	// Each CLI invocation starts a fresh process; reset the config cache to
+	// prevent state from leaking between calls within the same test binary.
+	invalidateConfigCache()
+
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
 

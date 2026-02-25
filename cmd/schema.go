@@ -77,7 +77,7 @@ func runSchemaExport(cmd *cobra.Command, args []string) error {
 func runSchemaValidate(cmd *cobra.Command, args []string) error {
 	cfgPath := localConfigPath()
 
-	cfg, err := config.Load(cfgPath)
+	cfg, err := configCache()
 	if err != nil {
 		return exitcode.Wrap(exitcode.Validation, fmt.Errorf("load config: %w", err))
 	}

@@ -22,8 +22,7 @@ Examples:
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name, _ := cmd.Flags().GetString("name")
 
-		cfgPath := localConfigPath()
-		cfg, err := config.Load(cfgPath)
+		cfg, err := configCache()
 		if err != nil {
 			return fmt.Errorf("load config: %w", err)
 		}
@@ -48,7 +47,7 @@ Examples:
 		}
 
 		cfg.Spec.LandingZones = filtered
-		if err := config.Save(cfg, cfgPath); err != nil {
+		if err := config.Save(cfg, localConfigPath()); err != nil {
 			return fmt.Errorf("save config: %w", err)
 		}
 

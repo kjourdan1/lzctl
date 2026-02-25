@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/kjourdan1/lzctl/internal/config"
 )
 
 var localLayerOrder = []string{
@@ -99,4 +101,28 @@ func parsePlanSummary(output string) (int, int, int) {
 func parseInt(v string) int {
 	n, _ := strconv.Atoi(strings.TrimSpace(v))
 	return n
+}
+
+var (
+	cfgCache    *config.LZConfig
+	cfgCacheErr error
+	cfgCacheSet bool
+)
+
+// configCache returns the config, loading and caching it on first call.
+// Commands that need config call this instead of config.Load() directly.
+func configCache() (*config.LZConfig, error) {
+	if !cfgCacheSet {
+		cfgCache, cfgCacheErr = config.Load(localConfigPath())
+		cfgCacheSet = true
+	}
+	return cfgCache, cfgCacheErr
+}
+
+// invalidateConfigCache forces a reload on the next configCache() call.
+// Called by init after writing the config file for the first time.
+func invalidateConfigCache() {
+	cfgCacheSet = false
+	cfgCache = nil
+	cfgCacheErr = nil
 }

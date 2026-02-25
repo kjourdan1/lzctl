@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kjourdan1/lzctl/internal/config"
 	"github.com/kjourdan1/lzctl/internal/output"
 	"github.com/kjourdan1/lzctl/internal/state"
 	"github.com/spf13/cobra"
@@ -49,7 +48,7 @@ func runStateSnapshot(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("specify --all to snapshot all states, or --layer <name> for a specific layer")
 	}
 
-	cfg, err := config.Load(localConfigPath())
+	cfg, err := configCache()
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}

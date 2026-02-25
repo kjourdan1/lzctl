@@ -46,7 +46,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 
 	output.Init(verbosity > 0, jsonOutput)
 
-	cfg, err := config.Load(configPath)
+	cfg, err := configCache()
 	if err != nil {
 		return exitcode.Wrap(exitcode.Validation, fmt.Errorf("loading config %q: %w", configPath, err))
 	}

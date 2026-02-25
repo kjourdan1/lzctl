@@ -231,7 +231,8 @@ func runInit(cmd *cobra.Command) error {
 			return fmt.Errorf("converting --from-file input to lzctl config: %w", err)
 		}
 	} else if cfgFile != "" {
-		cfg, err = config.Load(cfgFile)
+		invalidateConfigCache() // config file may have been written; force reload
+		cfg, err = configCache()
 		if err != nil {
 			return fmt.Errorf("loading config from --config %q: %w", cfgFile, err)
 		}

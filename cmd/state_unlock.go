@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/kjourdan1/lzctl/internal/config"
 	"github.com/kjourdan1/lzctl/internal/output"
 	"github.com/kjourdan1/lzctl/internal/state"
 	"github.com/spf13/cobra"
@@ -51,7 +50,7 @@ func runStateUnlock(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	cfg, err := config.Load(localConfigPath())
+	cfg, err := configCache()
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}

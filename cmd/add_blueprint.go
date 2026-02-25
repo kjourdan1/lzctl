@@ -49,8 +49,7 @@ func init() {
 
 func runAddBlueprint(cmd *cobra.Command, args []string) error {
 	_ = args
-	cfgPath := localConfigPath()
-	cfg, err := config.Load(cfgPath)
+	cfg, err := configCache()
 	if err != nil {
 		return fmt.Errorf("load config: %w (run lzctl init first)", err)
 	}
@@ -132,7 +131,7 @@ func runAddBlueprint(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	if err := config.Save(cfg, cfgPath); err != nil {
+	if err := config.Save(cfg, localConfigPath()); err != nil {
 		return fmt.Errorf("save config: %w", err)
 	}
 

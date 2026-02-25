@@ -12,7 +12,6 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
-	"github.com/kjourdan1/lzctl/internal/config"
 	"github.com/kjourdan1/lzctl/internal/output"
 )
 
@@ -45,8 +44,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	// Load project metadata from lzctl.yaml.
-	cfgPath := localConfigPath()
-	cfg, loadErr := config.Load(cfgPath)
+	cfg, loadErr := configCache()
 
 	// Get git info.
 	gitInfo := getGitInfo(root)
@@ -57,7 +55,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	// JSON output mode.
 	if jsonOutput {
 		result := map[string]interface{}{
-			"configFile": cfgPath,
+			"configFile": localConfigPath(),
 			"layers":     layers,
 		}
 		if cfg != nil {

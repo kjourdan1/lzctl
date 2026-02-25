@@ -45,8 +45,7 @@ Examples:
 
 		tags := parseTags(tagList)
 
-		cfgPath := localConfigPath()
-		cfg, err := config.Load(cfgPath)
+		cfg, err := configCache()
 		if err != nil {
 			return fmt.Errorf("load config: %w (run lzctl init first)", err)
 		}
@@ -77,7 +76,7 @@ Examples:
 		}
 
 		cfg.Spec.LandingZones = append(cfg.Spec.LandingZones, lz)
-		if err := config.Save(cfg, cfgPath); err != nil {
+		if err := config.Save(cfg, localConfigPath()); err != nil {
 			return fmt.Errorf("save config: %w", err)
 		}
 

@@ -46,8 +46,7 @@ func runDocs(cmd *cobra.Command, args []string) error {
 	green := color.New(color.FgGreen, color.Bold)
 
 	// Load project config.
-	cfgPath := localConfigPath()
-	cfg, err := config.Load(cfgPath)
+	cfg, err := configCache()
 	if err != nil {
 		return fmt.Errorf("load config: %w (run lzctl init first)", err)
 	}

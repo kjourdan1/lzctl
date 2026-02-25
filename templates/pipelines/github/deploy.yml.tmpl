@@ -5,11 +5,61 @@ on:
     branches: ["{{ .Config.Spec.CICD.BranchPolicy.MainBranch }}"]
 
 jobs:
-  terraform-apply:
+  plan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
+
+      # ── Plan layers and generate JSON for destroy gate ────────────
+      - name: Plan platform layers
+        run: |
+          set -euo pipefail
+          for d in platform/management-groups platform/identity platform/management platform/governance platform/connectivity; do
+            [ -d "$d" ] || continue
+            echo "═══ Planning: $d ═══"
+            terraform -chdir="$d" init -input=false -backend-config=../../backend.hcl -no-color
+            terraform -chdir="$d" plan -out=tfplan -input=false -no-color || true
+            terraform -chdir="$d" show -json tfplan > "$d/tfplan.json" 2>/dev/null || true
+          done
+
+      # ── Gate on destructive actions ───────────────────────────────
+      - name: Gate on destructive actions
+        run: |
+          set -euo pipefail
+          DESTROY=0
+          for f in platform/*/tfplan.json; do
+            [ -f "$f" ] || continue
+            N=$(jq '[.resource_changes[]? |
+              select(
+                (.change.actions | contains(["delete"])) and
+                (.type | IN("null_resource","azurerm_resource_group_template_deployment") | not) and
+                (.type | startswith("random_") | not)
+              )] | length' "$f" 2>/dev/null || echo 0)
+            if [ "$N" -gt 0 ]; then
+              echo "::error file=$f::$N destructive action(s) detected. Review plan before applying."
+              DESTROY=$((DESTROY + N))
+            fi
+          done
+          [ "$DESTROY" -eq 0 ] || exit 1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tfplans
+          path: platform/*/tfplan
+          if-no-files-found: ignore
+
+  apply:
+    needs: plan
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - uses: actions/download-artifact@v4
+        with:
+          name: tfplans
+          path: platform
 
       # ── State Life Management: snapshot before apply ──────────────
       # Creates a point-in-time backup of all state files before mutation.
@@ -36,10 +86,13 @@ jobs:
         run: |
           set -euo pipefail
           for d in platform/management-groups platform/identity platform/management platform/governance platform/connectivity; do
-            if [ -d "$d" ]; then
-              echo "═══ Applying: $d ═══"
-              terraform -chdir="$d" init -input=false -backend-config=../../backend.hcl
-              terraform -chdir="$d" apply -auto-approve -input=false
+            [ -d "$d" ] || continue
+            echo "═══ Applying: $d ═══"
+            terraform -chdir="$d" init -input=false -backend-config=../../backend.hcl -no-color
+            if [ -f "$d/tfplan" ]; then
+              terraform -chdir="$d" apply -input=false -no-color tfplan
+            else
+              terraform -chdir="$d" apply -auto-approve -input=false -no-color
             fi
           done{{ if .Config.Spec.LandingZones }}
       # ── Apply landing zones + blueprints (LZ → blueprint order) ──────
@@ -50,8 +103,8 @@ jobs:
             if [ -d "$d" ]; then
               echo "═══ Applying: $d ═══"
               [[ "$d" == */blueprint ]] && BCFG="-backend-config=backend.hcl" || BCFG="-backend-config=../../backend.hcl"
-              terraform -chdir="$d" init -input=false $BCFG
-              terraform -chdir="$d" apply -auto-approve -input=false
+              terraform -chdir="$d" init -input=false $BCFG -no-color
+              terraform -chdir="$d" apply -auto-approve -input=false -no-color
             fi
           done
 {{ end }}

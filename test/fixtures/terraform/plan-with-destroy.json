@@ -1,0 +1,10 @@
+{
+  "format_version": "1.2",
+  "resource_changes": [
+    {
+      "address": "azurerm_virtual_network.hub",
+      "type": "azurerm_virtual_network",
+      "change": { "actions": ["delete"] }
+    }
+  ]
+}

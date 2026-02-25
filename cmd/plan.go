@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/kjourdan1/lzctl/internal/exitcode"
+	"github.com/kjourdan1/lzctl/internal/planverify"
 )
 
 var planCmd = &cobra.Command{
@@ -71,7 +72,7 @@ func runPlan(cmd *cobra.Command, args []string) error {
 			return exitcode.Wrap(exitcode.Terraform, fmt.Errorf("layer %s: terraform init failed (output: %s): %w", layer, initOut, initErr))
 		}
 
-		out, planErr := runTerraformCmd(cmd.Context(), dir, "plan", "-input=false", "-detailed-exitcode", "-no-color")
+		out, planErr := runTerraformCmd(cmd.Context(), dir, "plan", "-input=false", "-detailed-exitcode", "-no-color", "-out=tfplan")
 		add, change, destroy := parsePlanSummary(out)
 		totalAdd += add
 		totalChange += change
@@ -87,6 +88,19 @@ func runPlan(cmd *cobra.Command, args []string) error {
 			// terraform plan detailed-exitcode returns 2 when changes are present.
 			if strings.Contains(out, "Error:") {
 				return exitcode.Wrap(exitcode.Terraform, fmt.Errorf("layer %s: terraform plan failed (output: %s): %w", layer, out, planErr))
+			}
+		}
+
+		// Generate JSON plan and warn on destructive actions (non-blocking)
+		if jsonOut, showErr := runTerraformCmd(cmd.Context(), dir, "show", "-json", "tfplan"); showErr == nil {
+			jsonPath := filepath.Join(dir, "tfplan.json")
+			_ = os.WriteFile(jsonPath, []byte(jsonOut), 0o644)
+			if violations, _ := planverify.ValidateActions(jsonPath); len(violations) > 0 {
+				color.New(color.FgRed).Fprintf(os.Stderr,
+					"   ⚠️  %d resource(s) will be destroyed in %s:\n", len(violations), layer)
+				for _, v := range violations {
+					fmt.Fprintf(os.Stderr, "      - %s (%s)\n", v.ResourceAddr, v.Action)
+				}
 			}
 		}
 

@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/kjourdan1/lzctl/internal/exitcode"
+	"github.com/kjourdan1/lzctl/internal/planverify"
 )
 
 var applyCmd = &cobra.Command{
@@ -98,7 +99,38 @@ func runApply(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
-		if applyOut, applyErr := runTerraformCmd(cmd.Context(), dir, "apply", "-auto-approve", "-input=false", "-no-color"); applyErr != nil {
+		planJSONPath := filepath.Join(dir, "tfplan.json")
+		planBinPath := filepath.Join(dir, "tfplan")
+
+		if fileExistsLocal(planJSONPath) {
+			if violations, verr := planverify.ValidateActions(planJSONPath); verr == nil && len(violations) > 0 {
+				color.New(color.FgRed, color.Bold).Fprintf(os.Stderr,
+					"\n   ⚠️  %d resource(s) will be DESTROYED in %s:\n", len(violations), layer)
+				for _, v := range violations {
+					fmt.Fprintf(os.Stderr, "      - %s (%s)\n", v.ResourceAddr, v.Action)
+				}
+				fmt.Fprintln(os.Stderr)
+				if effectiveCIMode() || applyAutoApprove {
+					return exitcode.Wrap(exitcode.Validation, fmt.Errorf(
+						"layer %s: %d destructive action(s) detected in CI mode; "+
+							"review plan or delete tfplan.json to bypass", layer, len(violations)))
+				}
+				// Interactive: require explicit confirmation
+				color.New(color.FgYellow).Fprintf(os.Stderr, "   Type 'yes' to confirm destruction: ")
+				reader2 := bufio.NewReader(os.Stdin)
+				answer2, _ := reader2.ReadString('\n')
+				if strings.TrimSpace(strings.ToLower(answer2)) != "yes" {
+					return fmt.Errorf("layer %s: apply canceled (destructive actions not confirmed)", layer)
+				}
+				fmt.Fprintln(os.Stderr)
+			}
+		}
+
+		applyArgs := []string{"apply", "-auto-approve", "-input=false", "-no-color"}
+		if fileExistsLocal(planBinPath) {
+			applyArgs = []string{"apply", "-input=false", "-no-color", "tfplan"}
+		}
+		if applyOut, applyErr := runTerraformCmd(cmd.Context(), dir, applyArgs...); applyErr != nil {
 			color.New(color.FgRed).Fprintf(os.Stderr, "   ❌ %-20s failed\n", layer)
 			return exitcode.Wrap(exitcode.Terraform, fmt.Errorf("layer %s: terraform apply failed (output: %s): %w", layer, applyOut, applyErr))
 		}

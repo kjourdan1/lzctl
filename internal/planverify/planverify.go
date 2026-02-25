@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -197,6 +198,59 @@ func collectResources(mod planModule) []planResource {
 		resources = append(resources, collectResources(child)...)
 	}
 	return resources
+}
+
+// ActionViolation represents a resource scheduled for a destructive change.
+type ActionViolation struct {
+	ResourceAddr string
+	Action       string // "delete" | "replace"
+}
+
+var safeToDestroyPrefixes = []string{"null_resource", "random_", "azurerm_resource_group_template_deployment"}
+
+func isSafeToDestroy(resourceType string) bool {
+	for _, prefix := range safeToDestroyPrefixes {
+		if resourceType == prefix || strings.HasPrefix(resourceType, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// ValidateActions reads a tfplan JSON file (produced by `terraform show -json tfplan`)
+// and returns all resources scheduled for deletion or replacement, excluding safe types.
+func ValidateActions(planJSONFile string) ([]ActionViolation, error) {
+	data, err := os.ReadFile(planJSONFile)
+	if err != nil {
+		return nil, fmt.Errorf("planverify: reading plan JSON %s: %w", planJSONFile, err)
+	}
+	var plan struct {
+		ResourceChanges []struct {
+			Address string `json:"address"`
+			Type    string `json:"type"`
+			Change  struct {
+				Actions []string `json:"actions"`
+			} `json:"change"`
+		} `json:"resource_changes"`
+	}
+	if err := json.Unmarshal(data, &plan); err != nil {
+		return nil, fmt.Errorf("planverify: parsing plan JSON: %w", err)
+	}
+	var violations []ActionViolation
+	for _, rc := range plan.ResourceChanges {
+		if isSafeToDestroy(rc.Type) {
+			continue
+		}
+		hasDelete := slices.Contains(rc.Change.Actions, "delete")
+		hasCreate := slices.Contains(rc.Change.Actions, "create")
+		switch {
+		case hasDelete && !hasCreate:
+			violations = append(violations, ActionViolation{ResourceAddr: rc.Address, Action: "delete"})
+		case hasDelete && hasCreate:
+			violations = append(violations, ActionViolation{ResourceAddr: rc.Address, Action: "replace"})
+		}
+	}
+	return violations, nil
 }
 
 // sha256File computes the hex-encoded SHA256 hash of a file.

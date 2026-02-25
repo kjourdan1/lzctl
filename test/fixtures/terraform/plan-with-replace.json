@@ -1,0 +1,10 @@
+{
+  "format_version": "1.2",
+  "resource_changes": [
+    {
+      "address": "azurerm_firewall.hub_fw",
+      "type": "azurerm_firewall",
+      "change": { "actions": ["create", "delete"] }
+    }
+  ]
+}

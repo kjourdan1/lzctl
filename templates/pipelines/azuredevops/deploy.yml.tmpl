@@ -7,30 +7,117 @@ pr: none
 pool:
   vmImage: ubuntu-latest
 
-steps:
-  - checkout: self
-  - task: TerraformInstaller@1
-    inputs:
-      terraformVersion: 'latest'
-  - script: |
-      set -euo pipefail
-      for d in platform/management-groups platform/identity platform/management platform/governance platform/connectivity; do
-        if [ -d "$d" ]; then
-          terraform -chdir="$d" init -input=false
-          terraform -chdir="$d" apply -auto-approve -input=false
-        fi
-      done
-    displayName: Terraform apply platform layers
+stages:
+  # ── Stage 1: Plan + destroy gate ─────────────────────────────────
+  - stage: Plan
+    displayName: Plan and Gate
+    jobs:
+      - job: plan
+        steps:
+          - checkout: self
+          - task: TerraformInstaller@1
+            inputs:
+              terraformVersion: 'latest'
+
+          - script: |
+              set -euo pipefail
+              for d in platform/management-groups platform/identity platform/management platform/governance platform/connectivity; do
+                [ -d "$d" ] || continue
+                echo "═══ Planning: $d ═══"
+                terraform -chdir="$d" init -input=false -no-color
+                terraform -chdir="$d" plan -out=tfplan -input=false -no-color || true
+                terraform -chdir="$d" show -json tfplan > "$d/tfplan.json" 2>/dev/null || true
+              done
+            displayName: Terraform plan platform layers
+
+          - script: |
+              set -euo pipefail
+              DESTROY=0
+              for f in platform/*/tfplan.json; do
+                [ -f "$f" ] || continue
+                N=$(jq '[.resource_changes[]? |
+                  select(
+                    (.change.actions | contains(["delete"])) and
+                    (.type | IN("null_resource","azurerm_resource_group_template_deployment") | not) and
+                    (.type | startswith("random_") | not)
+                  )] | length' "$f" 2>/dev/null || echo 0)
+                if [ "$N" -gt 0 ]; then
+                  echo "##vso[task.logissue type=error]$f: $N destructive action(s) detected. Review plan before applying."
+                  DESTROY=$((DESTROY + N))
+                fi
+              done
+              [ "$DESTROY" -eq 0 ] || exit 1
+            displayName: Gate on destructive actions
+
+          - task: PublishPipelineArtifact@1
+            inputs:
+              targetPath: platform
+              artifact: tfplans
+              publishLocation: pipeline
+            condition: succeeded()
+
+  # ── Stage 2: Apply ────────────────────────────────────────────────
+  - stage: Apply
+    displayName: Apply
+    dependsOn: Plan
+    jobs:
+      - deployment: apply
+        environment: production
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                - task: TerraformInstaller@1
+                  inputs:
+                    terraformVersion: 'latest'
+
+                - task: DownloadPipelineArtifact@2
+                  inputs:
+                    artifact: tfplans
+                    path: $(Pipeline.Workspace)/tfplans
+
+                - script: |
+                    set -euo pipefail
+                    echo "Creating pre-apply state snapshots..."
+                    for key in $(az storage blob list \
+                      --account-name "{{ .Config.Spec.StateBackend.StorageAccount }}" \
+                      --container "{{ .Config.Spec.StateBackend.Container }}" \
+                      --auth-mode login \
+                      --query "[?ends_with(name,'.tfstate')].name" -o tsv); do
+                      az storage blob snapshot \
+                        --account-name "{{ .Config.Spec.StateBackend.StorageAccount }}" \
+                        --container "{{ .Config.Spec.StateBackend.Container }}" \
+                        --name "$key" \
+                        --auth-mode login \
+                        --output none && echo "  ✓ snapshot: $key"
+                    done
+                  displayName: Snapshot state before apply
+
+                - script: |
+                    set -euo pipefail
+                    for d in platform/management-groups platform/identity platform/management platform/governance platform/connectivity; do
+                      [ -d "$d" ] || continue
+                      echo "═══ Applying: $d ═══"
+                      terraform -chdir="$d" init -input=false -no-color
+                      PLAN_FILE="$(Pipeline.Workspace)/tfplans/$d/tfplan"
+                      if [ -f "$PLAN_FILE" ]; then
+                        cp "$PLAN_FILE" "$d/tfplan"
+                        terraform -chdir="$d" apply -input=false -no-color tfplan
+                      else
+                        terraform -chdir="$d" apply -auto-approve -input=false -no-color
+                      fi
+                    done
+                  displayName: Terraform apply platform layers
 {{ if .Config.Spec.LandingZones }}
-  # Landing zones + blueprints (LZ → blueprint order)
-  - script: |
-      set -euo pipefail
-      for d in {{ range .Config.Spec.LandingZones }}landing-zones/{{ .Name | slugify }} {{ if .Blueprint }}landing-zones/{{ .Name | slugify }}/blueprint {{ end }}{{ end }}; do
-        if [ -d "$d" ]; then
-          [[ "$d" == */blueprint ]] && BCFG="-backend-config=backend.hcl" || BCFG="-backend-config=../../backend.hcl"
-          terraform -chdir="$d" init -input=false $BCFG
-          terraform -chdir="$d" apply -auto-approve -input=false
-        fi
-      done
-    displayName: Terraform apply landing zones and blueprints
+                - script: |
+                    set -euo pipefail
+                    for d in {{ range .Config.Spec.LandingZones }}landing-zones/{{ .Name | slugify }} {{ if .Blueprint }}landing-zones/{{ .Name | slugify }}/blueprint {{ end }}{{ end }}; do
+                      [ -d "$d" ] || continue
+                      echo "═══ Applying: $d ═══"
+                      [[ "$d" == */blueprint ]] && BCFG="-backend-config=backend.hcl" || BCFG="-backend-config=../../backend.hcl"
+                      terraform -chdir="$d" init -input=false $BCFG -no-color
+                      terraform -chdir="$d" apply -auto-approve -input=false -no-color
+                    done
+                  displayName: Terraform apply landing zones and blueprints
 {{ end }}

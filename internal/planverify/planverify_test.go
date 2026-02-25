@@ -9,6 +9,147 @@ import (
 	"testing"
 )
 
+// makePlanActionsJSON builds a minimal terraform plan JSON for action-based testing.
+func makePlanActionsJSON(resources []struct {
+	addr    string
+	typ     string
+	actions []string
+}) []byte {
+	changes := make([]interface{}, 0, len(resources))
+	for _, r := range resources {
+		changes = append(changes, map[string]interface{}{
+			"address": r.addr,
+			"type":    r.typ,
+			"change":  map[string]interface{}{"actions": r.actions},
+		})
+	}
+	plan := map[string]interface{}{
+		"resource_changes": changes,
+	}
+	data, _ := json.Marshal(plan)
+	return data
+}
+
+func TestValidateActions(t *testing.T) {
+	tests := []struct {
+		name      string
+		resources []struct {
+			addr, typ string
+			actions   []string
+		}
+		wantViolCount int
+		wantAction    string
+		wantErr       bool
+		rawJSON       string
+	}{
+		{
+			name:          "no_changes",
+			resources:     nil,
+			wantViolCount: 0,
+		},
+		{
+			name: "delete",
+			resources: []struct {
+				addr, typ string
+				actions   []string
+			}{
+				{addr: "azurerm_virtual_network.hub", typ: "azurerm_virtual_network", actions: []string{"delete"}},
+			},
+			wantViolCount: 1,
+			wantAction:    "delete",
+		},
+		{
+			name: "replace",
+			resources: []struct {
+				addr, typ string
+				actions   []string
+			}{
+				{addr: "azurerm_firewall.hub_fw", typ: "azurerm_firewall", actions: []string{"create", "delete"}},
+			},
+			wantViolCount: 1,
+			wantAction:    "replace",
+		},
+		{
+			name: "update_only",
+			resources: []struct {
+				addr, typ string
+				actions   []string
+			}{
+				{addr: "azurerm_virtual_network.hub", typ: "azurerm_virtual_network", actions: []string{"update"}},
+			},
+			wantViolCount: 0,
+		},
+		{
+			name: "whitelisted_null",
+			resources: []struct {
+				addr, typ string
+				actions   []string
+			}{
+				{addr: "null_resource.trigger", typ: "null_resource", actions: []string{"delete"}},
+			},
+			wantViolCount: 0,
+		},
+		{
+			name: "whitelisted_random",
+			resources: []struct {
+				addr, typ string
+				actions   []string
+			}{
+				{addr: "random_string.suffix", typ: "random_string", actions: []string{"delete"}},
+			},
+			wantViolCount: 0,
+		},
+		{
+			name:    "invalid_json",
+			rawJSON: "not json",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			jsonFile := filepath.Join(dir, "tfplan.json")
+
+			var data []byte
+			if tt.rawJSON != "" {
+				data = []byte(tt.rawJSON)
+			} else {
+				data = makePlanActionsJSON(tt.resources)
+			}
+			if err := os.WriteFile(jsonFile, data, 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			violations, err := ValidateActions(jsonFile)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("ValidateActions() expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ValidateActions() unexpected error: %v", err)
+			}
+			if len(violations) != tt.wantViolCount {
+				t.Errorf("ValidateActions() got %d violations, want %d", len(violations), tt.wantViolCount)
+			}
+			if tt.wantAction != "" && len(violations) > 0 {
+				if violations[0].Action != tt.wantAction {
+					t.Errorf("violations[0].Action = %q, want %q", violations[0].Action, tt.wantAction)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateActions_MissingFile(t *testing.T) {
+	_, err := ValidateActions("/nonexistent/tfplan.json")
+	if err == nil {
+		t.Fatal("expected error for missing file")
+	}
+}
+
 func TestSign_And_Verify(t *testing.T) {
 	dir := t.TempDir()
 	planFile := filepath.Join(dir, "tfplan")

@@ -73,10 +73,12 @@ func TestValidateTenantID(t *testing.T) {
 }
 
 func TestInitWizardRun_OrderAndConditionalPrompts(t *testing.T) {
+	cicdModelQuestion := "CI/CD model (push = standard pipelines, pull = GitOps operator)"
 	mock := &mockPrompter{answers: map[string]interface{}{
 		"Project name":                 "Contoso Platform",
 		"Tenant ID (UUID)":             "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
 		"CI/CD platform":               "github-actions",
+		cicdModelQuestion:              "push",
 		"Management group model":       "caf-standard",
 		"Connectivity model":           "hub-spoke",
 		"Primary region":               "westeurope",
@@ -98,6 +100,7 @@ func TestInitWizardRun_OrderAndConditionalPrompts(t *testing.T) {
 		"Project name",
 		"Tenant ID (UUID)",
 		"CI/CD platform",
+		cicdModelQuestion,
 		"Management group model",
 		"Connectivity model",
 		"Primary region",
@@ -112,6 +115,47 @@ func TestInitWizardRun_OrderAndConditionalPrompts(t *testing.T) {
 	assert.Equal(t, "Premium", cfg.FirewallSKU)
 	assert.True(t, cfg.VPNGatewayEnabled)
 	assert.True(t, cfg.DNSPrivateResolver)
+}
+
+func TestInitWizardRun_PullMode(t *testing.T) {
+	cicdModelQuestion := "CI/CD model (push = standard pipelines, pull = GitOps operator)"
+	mock := &mockPrompter{answers: map[string]interface{}{
+		"Project name":                 "Contoso GitOps",
+		"Tenant ID (UUID)":             "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+		"CI/CD platform":               "github-actions",
+		cicdModelQuestion:              "pull",
+		"GitOps engine":                "atlantis",
+		"Management group model":       "caf-standard",
+		"Connectivity model":           "none",
+		"Primary region":               "westeurope",
+		"Secondary region":             "",
+		"Identity model":               "workload-identity-federation",
+		"State backend strategy":       "create-new",
+		"Bootstrap state backend now?": false,
+	}}
+
+	cfg, err := NewInitWizard(mock).Run()
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+
+	assert.Equal(t, "pull", cfg.CICDModel)
+	assert.Equal(t, "atlantis", cfg.PullEngine)
+
+	// GitOps engine question must appear after CI/CD model question
+	modelIdx, engineIdx := -1, -1
+	for i, c := range mock.calls {
+		if c == cicdModelQuestion {
+			modelIdx = i
+		}
+		if c == "GitOps engine" {
+			engineIdx = i
+		}
+	}
+	assert.Greater(t, engineIdx, modelIdx, "GitOps engine must be asked after CI/CD model")
+
+	lzCfg := cfg.ToLZConfig()
+	require.NotNil(t, lzCfg.Spec.CICD.Pull)
+	assert.Equal(t, "atlantis", lzCfg.Spec.CICD.Pull.Engine)
 }
 
 func TestInitWizardRun_NoConnectivitySkipsSubprompts(t *testing.T) {

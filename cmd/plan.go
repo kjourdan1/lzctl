@@ -59,6 +59,16 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		return exitcode.Wrap(exitcode.Validation, err)
 	}
 
+	if dryRun {
+		bold := color.New(color.Bold)
+		bold.Fprintf(os.Stderr, "⚡ [DRY-RUN] Layer execution order:\n")
+		for i, l := range layers {
+			fmt.Fprintf(os.Stderr, "   %d. %s\n", i+1, l)
+		}
+		color.New(color.FgYellow, color.Bold).Fprintln(os.Stderr, "\n⚡ [DRY-RUN] No terraform calls made.")
+		return nil
+	}
+
 	bold := color.New(color.Bold)
 	bold.Fprintf(os.Stderr, "📐 Planning platform layers\n")
 	fmt.Fprintf(os.Stderr, "   Layers: %s\n\n", strings.Join(layers, ", "))

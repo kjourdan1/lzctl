@@ -14,6 +14,8 @@ type InitConfig struct {
 	ProjectName          string
 	TenantID             string
 	CICDPlatform         string
+	CICDModel            string // "push" (default) | "pull"
+	PullEngine           string // "atlantis" | "spacelift" | "tfcloud" — set when CICDModel == "pull"
 	ManagementGroupModel string
 	ConnectivityModel    string
 	PrimaryRegion        string
@@ -66,6 +68,7 @@ func (c InitConfig) ToLZConfig() *config.LZConfig {
 			},
 			CICD: config.CICD{
 				Platform:   c.CICDPlatform,
+				Model:      c.CICDModel,
 				Repository: "<owner>/<repo>",
 				BranchPolicy: config.BranchPolicy{
 					MainBranch: "main",
@@ -94,6 +97,10 @@ func (c InitConfig) ToLZConfig() *config.LZConfig {
 			VPNGateway: config.GatewayConfig{Enabled: c.VPNGatewayEnabled, SKU: "VpnGw2"},
 			ERGateway:  config.GatewayConfig{Enabled: c.ERGatewayEnabled, SKU: "ErGw1AZ"},
 		}
+	}
+
+	if c.CICDModel == "pull" && c.PullEngine != "" {
+		cfg.Spec.CICD.Pull = &config.PullConfig{Engine: c.PullEngine}
 	}
 
 	config.ApplyDefaults(cfg)
@@ -131,6 +138,18 @@ func (w *InitWizard) Run() (*InitConfig, error) {
 	cfg.CICDPlatform, err = w.prompter.Select("CI/CD platform", []string{"github-actions", "azure-devops"}, "github-actions")
 	if err != nil {
 		return nil, handlePromptErr(err)
+	}
+
+	cfg.CICDModel, err = w.prompter.Select("CI/CD model (push = standard pipelines, pull = GitOps operator)", []string{"push", "pull"}, "push")
+	if err != nil {
+		return nil, handlePromptErr(err)
+	}
+
+	if cfg.CICDModel == "pull" {
+		cfg.PullEngine, err = w.prompter.Select("GitOps engine", []string{"atlantis", "spacelift", "tfcloud"}, "atlantis")
+		if err != nil {
+			return nil, handlePromptErr(err)
+		}
 	}
 
 	cfg.ManagementGroupModel, err = w.prompter.Select("Management group model", []string{"caf-standard", "caf-lite"}, "caf-standard")

@@ -22,6 +22,7 @@ func HelperFuncMap() texttemplate.FuncMap {
 		"toJSON":         ToJSON,
 		"dnsZoneRef":     DNSZoneRef,
 		"deref":          DerefBool,
+		"sub":            func(a, b int) int { return a - b },
 	}
 }
 

@@ -9,6 +9,7 @@ const (
 	DefaultMGModel          = "caf-standard"
 	DefaultConnectivityType = "none"
 	DefaultIdentityType     = "workload-identity-federation"
+	DefaultCICDModel        = "push"
 )
 
 // ApplyDefaults fills in default values for optional fields that were not
@@ -66,5 +67,10 @@ func ApplyDefaults(cfg *LZConfig) {
 	// Identity type default
 	if cfg.Spec.Platform.Identity.Type == "" {
 		cfg.Spec.Platform.Identity.Type = DefaultIdentityType
+	}
+
+	// CI/CD model default
+	if cfg.Spec.CICD.Model == "" {
+		cfg.Spec.CICD.Model = DefaultCICDModel
 	}
 }

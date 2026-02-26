@@ -123,7 +123,11 @@ func writeTenantAudit(repoRoot string, event Event) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(file, data, 0o600)
+	if err := os.WriteFile(file, data, 0o600); err != nil {
+		return err
+	}
+	// Make the audit entry immutable (read-only) after writing.
+	return os.Chmod(file, 0o400)
 }
 
 func userAuditPath() (string, error) {

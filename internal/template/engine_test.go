@@ -495,6 +495,126 @@ func TestRenderBlueprint_AKSPlatform_ArgoCD_MissingRepoURL(t *testing.T) {
 	assert.Contains(t, err.Error(), "argocd.repoUrl")
 }
 
+func TestRenderBlueprint_ACAplatform(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	cfg := sampleConfig()
+	files, err := engine.RenderBlueprint("contoso-aca", &config.Blueprint{Type: "aca-platform"}, cfg)
+	require.NoError(t, err)
+	require.Len(t, files, 4)
+
+	content := map[string]string{}
+	for _, f := range files {
+		content[f.Path] = f.Content
+	}
+
+	mainTF := content[filepath.ToSlash(filepath.Join("landing-zones", "contoso-aca", "blueprint", "main.tf"))]
+	assert.NotEmpty(t, mainTF)
+	assert.Contains(t, mainTF, "azurerm_container_app_environment")
+	assert.Contains(t, mainTF, `module "key_vault"`)
+	assert.Contains(t, mainTF, "azurerm_user_assigned_identity")
+	assert.Contains(t, mainTF, "internal_load_balancer_enabled = true")
+}
+
+func TestRenderBlueprint_AVDSecure(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	cfg := sampleConfig()
+	files, err := engine.RenderBlueprint("contoso-avd", &config.Blueprint{Type: "avd-secure"}, cfg)
+	require.NoError(t, err)
+	require.Len(t, files, 4)
+
+	content := map[string]string{}
+	for _, f := range files {
+		content[f.Path] = f.Content
+	}
+
+	mainTF := content[filepath.ToSlash(filepath.Join("landing-zones", "contoso-avd", "blueprint", "main.tf"))]
+	assert.NotEmpty(t, mainTF)
+	assert.Contains(t, mainTF, "azurerm_virtual_desktop_host_pool")
+	assert.Contains(t, mainTF, "azurerm_storage_account")
+	assert.Contains(t, mainTF, "azurerm_private_endpoint")
+	assert.Contains(t, mainTF, "azurerm_monitor_diagnostic_setting")
+}
+
+func TestRenderAll_PullMode_AtlantisYAML(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	cfg := sampleConfig()
+	cfg.Spec.CICD.Model = "pull"
+	cfg.Spec.CICD.Pull = &config.PullConfig{Engine: "atlantis"}
+	cfg.Spec.Platform.Connectivity.Type = "hub-spoke"
+	cfg.Spec.Platform.Connectivity.Hub = &config.HubConfig{
+		Region:       "westeurope",
+		AddressSpace: "10.0.0.0/16",
+		Firewall:     config.FirewallConfig{Enabled: true, SKU: "Standard"},
+	}
+	cfg.Spec.LandingZones = []config.LandingZone{
+		{Name: "corp-prod", Archetype: "corp"},
+	}
+
+	files, err := engine.RenderAll(cfg)
+	require.NoError(t, err)
+
+	var atlantisContent string
+	for _, f := range files {
+		if f.Path == "atlantis.yaml" {
+			atlantisContent = f.Content
+			break
+		}
+	}
+
+	require.NotEmpty(t, atlantisContent, "atlantis.yaml must be generated in pull mode")
+	assert.Contains(t, atlantisContent, "version: 3")
+	assert.Contains(t, atlantisContent, "management-groups")
+	assert.Contains(t, atlantisContent, "connectivity")
+	assert.Contains(t, atlantisContent, "lz-corp-prod")
+	assert.Contains(t, atlantisContent, "apply_requirements:")
+	assert.Contains(t, atlantisContent, "- approved")
+	assert.Contains(t, atlantisContent, "- mergeable")
+}
+
+func TestRenderAll_PullMode_LightPipeline(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	cfg := sampleConfig()
+	cfg.Spec.CICD.Model = "pull"
+	cfg.Spec.CICD.Pull = &config.PullConfig{Engine: "atlantis"}
+
+	files, err := engine.RenderAll(cfg)
+	require.NoError(t, err)
+
+	paths := map[string]bool{}
+	for _, f := range files {
+		paths[f.Path] = true
+	}
+
+	// validate.yml must exist (lightweight version)
+	assert.True(t, paths[".github/workflows/validate.yml"], "validate.yml must be generated")
+	// deploy.yml must NOT exist in pull mode
+	assert.False(t, paths[".github/workflows/deploy.yml"], "deploy.yml must NOT be generated in pull mode")
+	// drift.yml must NOT exist in pull mode
+	assert.False(t, paths[".github/workflows/drift.yml"], "drift.yml must NOT be generated in pull mode")
+}
+
+func TestRenderAll_PushMode_NoAtlantis(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	cfg := sampleConfig()
+	// default model is push
+	files, err := engine.RenderAll(cfg)
+	require.NoError(t, err)
+
+	for _, f := range files {
+		assert.NotEqual(t, "atlantis.yaml", f.Path, "atlantis.yaml must NOT be generated in push mode")
+	}
+}
+
 func TestWriteAll_DryRun(t *testing.T) {
 	writer := Writer{DryRun: true}
 	dir := t.TempDir()

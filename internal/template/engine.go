@@ -46,19 +46,33 @@ func (e *Engine) RenderAll(cfg *config.LZConfig) ([]RenderedFile, error) {
 		{TemplatePath: "shared/readme.md.tmpl", OutputPath: "README.md"},
 	}
 
+	isPullMode := cfg.Spec.CICD.EffectiveModel() == "pull"
+
 	switch strings.ToLower(strings.TrimSpace(cfg.Spec.CICD.Platform)) {
 	case "azure-devops", "azuredevops":
-		templateToPath = append(templateToPath,
-			struct{ TemplatePath, OutputPath string }{TemplatePath: "pipelines/azuredevops/validate.yml.tmpl", OutputPath: ".azuredevops/pipelines/validate.yml"},
-			struct{ TemplatePath, OutputPath string }{TemplatePath: "pipelines/azuredevops/deploy.yml.tmpl", OutputPath: ".azuredevops/pipelines/deploy.yml"},
-			struct{ TemplatePath, OutputPath string }{TemplatePath: "pipelines/azuredevops/drift.yml.tmpl", OutputPath: ".azuredevops/pipelines/drift.yml"},
-		)
+		if isPullMode {
+			templateToPath = append(templateToPath,
+				struct{ TemplatePath, OutputPath string }{TemplatePath: "pipelines/azuredevops/validate-pull.yml.tmpl", OutputPath: ".azuredevops/pipelines/validate.yml"},
+			)
+		} else {
+			templateToPath = append(templateToPath,
+				struct{ TemplatePath, OutputPath string }{TemplatePath: "pipelines/azuredevops/validate.yml.tmpl", OutputPath: ".azuredevops/pipelines/validate.yml"},
+				struct{ TemplatePath, OutputPath string }{TemplatePath: "pipelines/azuredevops/deploy.yml.tmpl", OutputPath: ".azuredevops/pipelines/deploy.yml"},
+				struct{ TemplatePath, OutputPath string }{TemplatePath: "pipelines/azuredevops/drift.yml.tmpl", OutputPath: ".azuredevops/pipelines/drift.yml"},
+			)
+		}
 	default:
-		templateToPath = append(templateToPath,
-			struct{ TemplatePath, OutputPath string }{TemplatePath: "pipelines/github/validate.yml.tmpl", OutputPath: ".github/workflows/validate.yml"},
-			struct{ TemplatePath, OutputPath string }{TemplatePath: "pipelines/github/deploy.yml.tmpl", OutputPath: ".github/workflows/deploy.yml"},
-			struct{ TemplatePath, OutputPath string }{TemplatePath: "pipelines/github/drift.yml.tmpl", OutputPath: ".github/workflows/drift.yml"},
-		)
+		if isPullMode {
+			templateToPath = append(templateToPath,
+				struct{ TemplatePath, OutputPath string }{TemplatePath: "pipelines/github/validate-pull.yml.tmpl", OutputPath: ".github/workflows/validate.yml"},
+			)
+		} else {
+			templateToPath = append(templateToPath,
+				struct{ TemplatePath, OutputPath string }{TemplatePath: "pipelines/github/validate.yml.tmpl", OutputPath: ".github/workflows/validate.yml"},
+				struct{ TemplatePath, OutputPath string }{TemplatePath: "pipelines/github/deploy.yml.tmpl", OutputPath: ".github/workflows/deploy.yml"},
+				struct{ TemplatePath, OutputPath string }{TemplatePath: "pipelines/github/drift.yml.tmpl", OutputPath: ".github/workflows/drift.yml"},
+			)
+		}
 	}
 
 	if strings.EqualFold(cfg.Spec.Platform.ManagementGroups.Model, "caf-lite") {
@@ -180,7 +194,65 @@ func (e *Engine) RenderAll(cfg *config.LZConfig) ([]RenderedFile, error) {
 	}
 	files = append(files, testFiles...)
 
+	// Pull mode: generate atlantis.yaml (and skip deploy pipeline)
+	if cfg.Spec.CICD.EffectiveModel() == "pull" {
+		pullFiles, pullErr := e.renderPullModeFiles(cfg)
+		if pullErr != nil {
+			return nil, pullErr
+		}
+		files = append(files, pullFiles...)
+	}
+
 	return files, nil
+}
+
+// cafLayerOrder is the canonical CAF platform layer dependency order.
+var cafLayerOrder = []string{
+	"management-groups",
+	"identity",
+	"management",
+	"governance",
+	"connectivity",
+}
+
+// activeLayers returns the platform layers that are active for the given config,
+// following the CAF dependency order.
+func activeLayers(cfg *config.LZConfig) []string {
+	layers := make([]string, 0, len(cafLayerOrder))
+	for _, l := range cafLayerOrder {
+		if l == "connectivity" && strings.EqualFold(strings.TrimSpace(cfg.Spec.Platform.Connectivity.Type), "none") {
+			continue
+		}
+		layers = append(layers, l)
+	}
+	return layers
+}
+
+// renderPullModeFiles generates atlantis.yaml and a lightweight CI pipeline.
+func (e *Engine) renderPullModeFiles(cfg *config.LZConfig) ([]RenderedFile, error) {
+	if cfg.Spec.CICD.Pull == nil || strings.ToLower(strings.TrimSpace(cfg.Spec.CICD.Pull.Engine)) != "atlantis" {
+		// Only atlantis is implemented; spacelift/tfcloud are future extensions.
+		return nil, nil
+	}
+
+	layers := activeLayers(cfg)
+	ctx := map[string]interface{}{
+		"Config": cfg,
+		"Layers": layers,
+	}
+
+	var sb strings.Builder
+	t, err := texttemplate.New("atlantis.yaml.tmpl").Funcs(e.funcMap).ParseFS(templatefs.FS, "pipelines/atlantis/atlantis.yaml.tmpl")
+	if err != nil {
+		return nil, fmt.Errorf("parsing atlantis template: %w", err)
+	}
+	if err := t.ExecuteTemplate(&sb, "atlantis.yaml.tmpl", ctx); err != nil {
+		return nil, fmt.Errorf("rendering atlantis.yaml: %w", err)
+	}
+
+	return []RenderedFile{
+		{Path: "atlantis.yaml", Content: sb.String()},
+	}, nil
 }
 
 // RenderBlueprint renders Terraform files for a landing-zone blueprint.
@@ -225,8 +297,24 @@ func (e *Engine) RenderBlueprint(layer string, blueprint *config.Blueprint, cfg 
 	case "aks-platform":
 		return renderAKSPlatformBlueprint(baseDir, zoneName, blueprint, cfg)
 
-	case "aca-platform", "avd-secure":
-		return nil, fmt.Errorf("blueprint type %q is not implemented yet", blueprintType)
+	case "aca-platform":
+		backendHCL := renderBlueprintBackendHCL(cfg, zoneName)
+		return []RenderedFile{
+			{Path: filepath.ToSlash(filepath.Join(baseDir, "main.tf")), Content: renderACABlueprintMainTF(cfg, zoneName)},
+			{Path: filepath.ToSlash(filepath.Join(baseDir, "variables.tf")), Content: renderACABlueprintVariablesTF()},
+			{Path: filepath.ToSlash(filepath.Join(baseDir, "blueprint.auto.tfvars")), Content: renderACABlueprintTFVars(cfg)},
+			{Path: filepath.ToSlash(filepath.Join(baseDir, "backend.hcl")), Content: backendHCL},
+		}, nil
+
+	case "avd-secure":
+		backendHCL := renderBlueprintBackendHCL(cfg, zoneName)
+		return []RenderedFile{
+			{Path: filepath.ToSlash(filepath.Join(baseDir, "main.tf")), Content: renderAVDBlueprintMainTF(cfg, zoneName)},
+			{Path: filepath.ToSlash(filepath.Join(baseDir, "variables.tf")), Content: renderAVDBlueprintVariablesTF()},
+			{Path: filepath.ToSlash(filepath.Join(baseDir, "blueprint.auto.tfvars")), Content: renderAVDBlueprintTFVars(cfg)},
+			{Path: filepath.ToSlash(filepath.Join(baseDir, "backend.hcl")), Content: backendHCL},
+		}, nil
+
 	default:
 		return nil, fmt.Errorf("unsupported blueprint type %q", blueprintType)
 	}

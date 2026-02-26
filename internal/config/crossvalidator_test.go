@@ -46,6 +46,36 @@ func TestValidateCross_CustomPolicyPath(t *testing.T) {
 	assert.False(t, hasCrossStatus(checks, "error"))
 }
 
+func TestValidateCross_CICDModel_InvalidModel(t *testing.T) {
+	cfg := &LZConfig{
+		Spec: Spec{CICD: CICD{Model: "invalid"}},
+	}
+	checks, err := ValidateCross(cfg, "")
+	require.NoError(t, err)
+	assert.True(t, hasCrossStatus(checks, "error"))
+	assert.True(t, hasCrossName(checks, "cicd-model"))
+}
+
+func TestValidateCross_CICDModel_PullMissingEngine(t *testing.T) {
+	cfg := &LZConfig{
+		Spec: Spec{CICD: CICD{Model: "pull"}},
+	}
+	checks, err := ValidateCross(cfg, "")
+	require.NoError(t, err)
+	assert.True(t, hasCrossStatus(checks, "error"))
+	assert.True(t, hasCrossName(checks, "cicd-pull-engine"))
+}
+
+func TestValidateCross_CICDModel_PullValidEngine(t *testing.T) {
+	cfg := &LZConfig{
+		Spec: Spec{CICD: CICD{Model: "pull", Pull: &PullConfig{Engine: "atlantis"}}},
+	}
+	checks, err := ValidateCross(cfg, "")
+	require.NoError(t, err)
+	assert.False(t, hasCrossStatus(checks, "error"))
+	assert.True(t, hasCrossName(checks, "cicd-pull-engine"))
+}
+
 func hasCrossStatus(checks []CrossCheck, status string) bool {
 	for _, c := range checks {
 		if c.Status == status {

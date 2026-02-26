@@ -125,6 +125,25 @@ func ValidateCross(cfg *LZConfig, repoRoot string) ([]CrossCheck, error) {
 		}
 	}
 
+	// CI/CD model validation
+	switch strings.ToLower(strings.TrimSpace(cfg.Spec.CICD.Model)) {
+	case "push", "":
+		// valid
+	case "pull":
+		if cfg.Spec.CICD.Pull == nil || strings.TrimSpace(cfg.Spec.CICD.Pull.Engine) == "" {
+			add("cicd-pull-engine", "error", "spec.cicd.pull.engine is required when spec.cicd.model is \"pull\" (allowed: atlantis, spacelift, tfcloud)")
+		} else {
+			switch strings.ToLower(strings.TrimSpace(cfg.Spec.CICD.Pull.Engine)) {
+			case "atlantis", "spacelift", "tfcloud":
+				add("cicd-pull-engine", "pass", fmt.Sprintf("pull engine %q is valid", cfg.Spec.CICD.Pull.Engine))
+			default:
+				add("cicd-pull-engine", "error", fmt.Sprintf("invalid spec.cicd.pull.engine %q (allowed: atlantis, spacelift, tfcloud)", cfg.Spec.CICD.Pull.Engine))
+			}
+		}
+	default:
+		add("cicd-model", "error", fmt.Sprintf("invalid spec.cicd.model %q (allowed: push, pull)", cfg.Spec.CICD.Model))
+	}
+
 	if !hasStatus(checks, "error") {
 		add("cross-check-summary", "pass", "cross checks passed")
 	}

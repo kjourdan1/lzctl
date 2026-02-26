@@ -244,9 +244,24 @@ func (a *ArgoCDConfig) EffectiveAppPath() string {
 
 // CICD holds CI/CD pipeline configuration.
 type CICD struct {
-	Platform     string       `yaml:"platform" json:"platform"` // "github-actions" | "azure-devops"
+	Platform     string       `yaml:"platform" json:"platform"`               // "github-actions" | "azure-devops"
+	Model        string       `yaml:"model,omitempty" json:"model,omitempty"` // "push" (default) | "pull"
+	Pull         *PullConfig  `yaml:"pull,omitempty" json:"pull,omitempty"`   // required when model == "pull"
 	Repository   string       `yaml:"repository,omitempty" json:"repository,omitempty"`
 	BranchPolicy BranchPolicy `yaml:"branchPolicy" json:"branchPolicy"`
+}
+
+// EffectiveModel returns the effective CI/CD model, defaulting to "push".
+func (c *CICD) EffectiveModel() string {
+	if c.Model == "pull" {
+		return "pull"
+	}
+	return "push"
+}
+
+// PullConfig holds pull-mode (GitOps operator) configuration.
+type PullConfig struct {
+	Engine string `yaml:"engine" json:"engine"` // "atlantis" | "spacelift" | "tfcloud"
 }
 
 // BranchPolicy holds branch protection settings for CI/CD.

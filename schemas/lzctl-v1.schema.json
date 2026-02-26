@@ -323,6 +323,24 @@
           "type": "string",
           "enum": ["github-actions", "azure-devops"]
         },
+        "model": {
+          "type": "string",
+          "enum": ["push", "pull"],
+          "description": "CI/CD execution model: push (default, standard pipelines) or pull (GitOps operator manages plan/apply)"
+        },
+        "pull": {
+          "type": "object",
+          "description": "Pull-mode configuration (required when model is 'pull')",
+          "properties": {
+            "engine": {
+              "type": "string",
+              "enum": ["atlantis", "spacelift", "tfcloud"],
+              "description": "GitOps operator to use for plan/apply"
+            }
+          },
+          "required": ["engine"],
+          "additionalProperties": false
+        },
         "repository": { "type": "string" },
         "branchPolicy": {
           "type": "object",

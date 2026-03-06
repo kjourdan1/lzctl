@@ -1,4 +1,5 @@
 # Build output
+tasks/
 bin/
 dist/
 lzctl
@@ -12,6 +13,12 @@ coverage.out
 # lzctl local cache
 .lzctl-cache/
 *.tmp
+
+# AI planning docs (internal, not for public repo)
+docs/PRD.md
+docs/epics-and-stories.md
+docs/go-test-backlog.md
+docs/product-brief-lzctl-2026-02-16.md
 
 # IDE
 .vscode/

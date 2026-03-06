@@ -41,5 +41,7 @@ func TestWriteTenantAudit_FileIsReadOnly(t *testing.T) {
 
 	info, err := entries[0].Info()
 	require.NoError(t, err)
-	assert.Equal(t, os.FileMode(0o400), info.Mode().Perm(), "tenant audit file must be read-only (0o400)")
+	// On Windows, Chmod(0o400) sets the read-only attribute, which Go reports as 0o444.
+	// Check that no write bit is set rather than exact permissions (cross-platform).
+	assert.Equal(t, os.FileMode(0), info.Mode().Perm()&0o222, "tenant audit file must have no write bits set")
 }

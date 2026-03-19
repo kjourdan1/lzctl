@@ -72,9 +72,16 @@ type HubConfig struct {
 	Region       string         `yaml:"region" json:"region"`
 	AddressSpace string         `yaml:"addressSpace" json:"addressSpace"`
 	Firewall     FirewallConfig `yaml:"firewall" json:"firewall"`
+	Bastion      BastionConfig  `yaml:"bastion" json:"bastion"`
 	DNS          DNSConfig      `yaml:"dns" json:"dns"`
 	VPNGateway   GatewayConfig  `yaml:"vpnGateway" json:"vpnGateway"`
 	ERGateway    GatewayConfig  `yaml:"expressRouteGateway" json:"expressRouteGateway"`
+}
+
+// BastionConfig holds Azure Bastion settings.
+type BastionConfig struct {
+	Enabled bool   `yaml:"enabled" json:"enabled"`
+	SKU     string `yaml:"sku,omitempty" json:"sku,omitempty"` // "Basic" | "Standard"
 }
 
 // FirewallConfig holds Azure Firewall settings.
@@ -130,8 +137,18 @@ type Governance struct {
 
 // PolicyConfig holds policy assignment and custom policy references.
 type PolicyConfig struct {
+	Enabled     *bool    `yaml:"enabled,omitempty" json:"enabled,omitempty"` // default: true
 	Assignments []string `yaml:"assignments" json:"assignments"`
 	Custom      []string `yaml:"custom,omitempty" json:"custom,omitempty"`
+}
+
+// EffectivePoliciesEnabled returns true unless explicitly disabled.
+// Policies are enabled by default; set enabled: false to suppress caf-default.tf generation.
+func (p PolicyConfig) EffectivePoliciesEnabled() bool {
+	if p.Enabled == nil {
+		return true
+	}
+	return *p.Enabled
 }
 
 // Naming holds naming convention configuration.

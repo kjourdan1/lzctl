@@ -28,6 +28,7 @@ spec:
         {{- end }}
   governance:
     policies:
+      enabled: {{ .Config.Spec.Governance.Policies.EffectivePoliciesEnabled }}
       assignments:
       {{- range .Config.Spec.Governance.Policies.Assignments }}
         - {{ . }}

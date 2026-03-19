@@ -6,3 +6,13 @@ resource "azurerm_log_analytics_workspace" "this" {
   sku                 = "PerGB2018"
   retention_in_days   = {{ .Config.Spec.Platform.Management.LogAnalytics.RetentionDays }}
 }
+{{- if .Config.Spec.Platform.Management.Defender.Enabled }}
+
+# --- Microsoft Defender for Cloud ---
+{{- range .Config.Spec.Platform.Management.Defender.Plans }}
+resource "azurerm_security_center_subscription_pricing" "{{ . | slugify }}" {
+  tier          = "Standard"
+  resource_type = "{{ . }}"
+}
+{{- end }}
+{{- end }}

@@ -57,7 +57,7 @@ func TestRenderAll(t *testing.T) {
 
 	files, err := engine.RenderAll(sampleConfig())
 	require.NoError(t, err)
-	assert.Len(t, files, 22)
+	assert.Len(t, files, 23)
 
 	paths := map[string]bool{}
 	for _, f := range files {
@@ -79,6 +79,7 @@ func TestRenderAll(t *testing.T) {
 	assert.True(t, paths[filepath.ToSlash(filepath.Join(".github", "workflows", "validate.yml"))])
 	assert.True(t, paths[filepath.ToSlash(filepath.Join(".github", "workflows", "deploy.yml"))])
 	assert.True(t, paths[filepath.ToSlash(filepath.Join(".github", "workflows", "drift.yml"))])
+	assert.True(t, paths[filepath.ToSlash(filepath.Join(".github", "copilot-instructions.md"))])
 }
 
 func TestRenderAll_ConnectivityVariants(t *testing.T) {
@@ -787,6 +788,209 @@ func TestRenderAll_WithTesting_AddsTestFiles(t *testing.T) {
 	assert.True(t, paths[filepath.ToSlash(filepath.Join("platform", "management", "testing.tftest.hcl"))])
 	assert.True(t, paths[filepath.ToSlash(filepath.Join("platform", "connectivity", "testing.tftest.hcl"))])
 	assert.True(t, paths[filepath.ToSlash(filepath.Join("platform", "management-groups", "testing.tftest.hcl"))])
+}
+
+func TestFeatureFlags_Bastion(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	t.Run("bastion_enabled_fw", func(t *testing.T) {
+		cfg := sampleConfig()
+		cfg.Spec.Platform.Connectivity.Type = "hub-spoke"
+		cfg.Spec.Platform.Connectivity.Hub = &config.HubConfig{
+			Region:       "westeurope",
+			AddressSpace: "10.0.0.0/16",
+			Firewall:     config.FirewallConfig{Enabled: true, SKU: "Standard"},
+			Bastion:      config.BastionConfig{Enabled: true, SKU: "Standard"},
+		}
+
+		files, renderErr := engine.RenderAll(cfg)
+		require.NoError(t, renderErr)
+
+		for _, f := range files {
+			if f.Path == filepath.ToSlash(filepath.Join("platform", "connectivity", "main.tf")) {
+				assert.Contains(t, f.Content, `module "bastion"`)
+				assert.Contains(t, f.Content, "avm-res-network-bastionhost")
+				return
+			}
+		}
+		t.Fatal("platform/connectivity/main.tf not found")
+	})
+
+	t.Run("bastion_enabled_nva", func(t *testing.T) {
+		cfg := sampleConfig()
+		cfg.Spec.Platform.Connectivity.Type = "hub-spoke"
+		cfg.Spec.Platform.Connectivity.Hub = &config.HubConfig{
+			Region:       "westeurope",
+			AddressSpace: "10.0.0.0/16",
+			Firewall:     config.FirewallConfig{Enabled: false},
+			Bastion:      config.BastionConfig{Enabled: true},
+		}
+
+		files, renderErr := engine.RenderAll(cfg)
+		require.NoError(t, renderErr)
+
+		for _, f := range files {
+			if f.Path == filepath.ToSlash(filepath.Join("platform", "connectivity", "main.tf")) {
+				assert.Contains(t, f.Content, `module "bastion"`)
+				return
+			}
+		}
+		t.Fatal("platform/connectivity/main.tf not found")
+	})
+
+	t.Run("bastion_disabled", func(t *testing.T) {
+		cfg := sampleConfig()
+		cfg.Spec.Platform.Connectivity.Type = "hub-spoke"
+		cfg.Spec.Platform.Connectivity.Hub = &config.HubConfig{
+			Region:       "westeurope",
+			AddressSpace: "10.0.0.0/16",
+			Firewall:     config.FirewallConfig{Enabled: true, SKU: "Standard"},
+		}
+
+		files, renderErr := engine.RenderAll(cfg)
+		require.NoError(t, renderErr)
+
+		for _, f := range files {
+			if f.Path == filepath.ToSlash(filepath.Join("platform", "connectivity", "main.tf")) {
+				assert.NotContains(t, f.Content, `module "bastion"`)
+				return
+			}
+		}
+		t.Fatal("platform/connectivity/main.tf not found")
+	})
+}
+
+func TestFeatureFlags_PoliciesEnabled(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	t.Run("policies_enabled_by_default", func(t *testing.T) {
+		cfg := sampleConfig()
+		// Enabled is nil → EffectivePoliciesEnabled() returns true
+		files, renderErr := engine.RenderAll(cfg)
+		require.NoError(t, renderErr)
+
+		paths := map[string]bool{}
+		for _, f := range files {
+			paths[f.Path] = true
+		}
+		assert.True(t, paths[filepath.ToSlash(filepath.Join("platform", "governance", "policies", "caf-default.tf"))],
+			"caf-default.tf should be generated when policies.enabled is unset (default: true)")
+	})
+
+	t.Run("policies_disabled", func(t *testing.T) {
+		cfg := sampleConfig()
+		disabled := false
+		cfg.Spec.Governance.Policies.Enabled = &disabled
+
+		files, renderErr := engine.RenderAll(cfg)
+		require.NoError(t, renderErr)
+
+		paths := map[string]bool{}
+		for _, f := range files {
+			paths[f.Path] = true
+		}
+		assert.False(t, paths[filepath.ToSlash(filepath.Join("platform", "governance", "policies", "caf-default.tf"))],
+			"caf-default.tf should be absent when policies.enabled is false")
+	})
+}
+
+func TestFeatureFlags_DefenderConditional(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	t.Run("defender_enabled", func(t *testing.T) {
+		cfg := sampleConfig()
+		cfg.Spec.Platform.Management.Defender = config.DefenderConfig{Enabled: true, Plans: []string{"VirtualMachines"}}
+
+		files, renderErr := engine.RenderAll(cfg)
+		require.NoError(t, renderErr)
+
+		for _, f := range files {
+			if f.Path == filepath.ToSlash(filepath.Join("platform", "management", "main.tf")) {
+				assert.Contains(t, f.Content, "Microsoft Defender for Cloud")
+				assert.Contains(t, f.Content, "azurerm_security_center_subscription_pricing")
+				return
+			}
+		}
+		t.Fatal("platform/management/main.tf not found")
+	})
+
+	t.Run("defender_disabled", func(t *testing.T) {
+		cfg := sampleConfig()
+		cfg.Spec.Platform.Management.Defender = config.DefenderConfig{Enabled: false}
+
+		files, renderErr := engine.RenderAll(cfg)
+		require.NoError(t, renderErr)
+
+		for _, f := range files {
+			if f.Path == filepath.ToSlash(filepath.Join("platform", "management", "main.tf")) {
+				assert.NotContains(t, f.Content, "azurerm_security_center_subscription_pricing")
+				return
+			}
+		}
+		t.Fatal("platform/management/main.tf not found")
+	})
+}
+
+func TestCopilotInstructions(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	files, err := engine.RenderAll(sampleConfig())
+	require.NoError(t, err)
+
+	var copilot string
+	for _, f := range files {
+		if f.Path == filepath.ToSlash(filepath.Join(".github", "copilot-instructions.md")) {
+			copilot = f.Content
+			break
+		}
+	}
+	require.NotEmpty(t, copilot, ".github/copilot-instructions.md should be generated")
+	assert.Contains(t, copilot, "contoso-alz")
+	assert.Contains(t, copilot, "none") // connectivity type
+	assert.Contains(t, copilot, "public_network_access_enabled")
+}
+
+func TestReadme_AtlantisSection(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	t.Run("push_mode_no_atlantis_section", func(t *testing.T) {
+		cfg := sampleConfig()
+		// push mode is default
+		files, renderErr := engine.RenderAll(cfg)
+		require.NoError(t, renderErr)
+
+		for _, f := range files {
+			if f.Path == "README.md" {
+				assert.NotContains(t, f.Content, "GitOps Workflow — Atlantis")
+				return
+			}
+		}
+		t.Fatal("README.md not found")
+	})
+
+	t.Run("pull_mode_has_atlantis_section", func(t *testing.T) {
+		cfg := sampleConfig()
+		cfg.Spec.CICD.Model = "pull"
+		cfg.Spec.CICD.Pull = &config.PullConfig{Engine: "atlantis"}
+
+		files, renderErr := engine.RenderAll(cfg)
+		require.NoError(t, renderErr)
+
+		for _, f := range files {
+			if f.Path == "README.md" {
+				assert.Contains(t, f.Content, "GitOps Workflow — Atlantis")
+				assert.Contains(t, f.Content, "atlantis plan")
+				assert.Contains(t, f.Content, "atlantis apply")
+				return
+			}
+		}
+		t.Fatal("README.md not found")
+	})
 }
 
 func TestFilterAssertions(t *testing.T) {

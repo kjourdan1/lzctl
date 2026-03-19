@@ -47,6 +47,57 @@ lzctl.yaml                          ← Single source of truth (declarative)
 
 Each layer uses **Azure Verified Modules (AVM)** with pinned versions and a **separate Terraform state file**, minimising blast radius.
 
+### Layered State Strategy
+
+Each platform layer is an independent Terraform root module with its own state file in the shared Azure Storage backend:
+
+```
+tfstate container
+├── platform-management-groups.tfstate
+├── platform-identity.tfstate
+├── platform-management.tfstate
+├── platform-governance.tfstate
+├── platform-connectivity.tfstate
+└── landing-zones-<name>.tfstate
+```
+
+| Concern | Single monolithic state | One state per layer |
+|---|---|---|
+| Concurrent pipelines | Global blob lease — everything blocked | Only the active layer is locked |
+| Blast radius | Any apply can touch any resource | Changes scoped to one layer |
+| Plan readability | Hundreds of resources | 20–40 resources, focused diff |
+| Team ownership | Constant collision risk | Each team owns their layer |
+| Rollback | Risky — touches everything | Surgical per layer |
+
+### Cross-Layer References
+
+Layers communicate via `terraform_remote_state` read-only data sources. The connectivity layer reads the Log Analytics workspace ID from the management state without owning it:
+
+```hcl
+data "terraform_remote_state" "management" {
+  backend = "azurerm"
+  config = {
+    storage_account_name = "stcontosotfstate"
+    container_name       = "tfstate"
+    key                  = "platform-management.tfstate"
+  }
+}
+
+# Downstream layer consumes an upstream output
+log_analytics_workspace_id = data.terraform_remote_state.management.outputs.log_analytics_workspace_id
+```
+
+**Layer outputs are a stable public API.** Renaming or removing an output breaks all downstream consumers — always migrate, never silently rename.
+
+### Layer Dependency Order
+
+```
+management-groups ──► identity ──► management ──► governance ──► connectivity
+                                                                       │
+                                                               landing-zones/*
+                                                                   └── blueprint/
+```
+
 ## Quick Start
 
 ### Prerequisites
@@ -74,6 +125,8 @@ go build -o bin/lzctl .
 
 ### Deploy a Landing Zone (greenfield)
 
+**Day 0 — Bootstrap (once, from your local machine)**
+
 ```bash
 # 1. Check prerequisites
 lzctl doctor
@@ -84,14 +137,23 @@ lzctl init
 # 3. Validate configuration
 lzctl validate
 
-# 4. Preview changes
-lzctl plan
-
-# 5. Deploy (CAF-ordered layers)
+# 4. First deployment — run locally to seed the state backend
 lzctl apply --auto-approve
 
-# 6. Check status
+# 5. Check status
 lzctl status
+```
+
+> **From this point on, all changes go through Git.** `lzctl apply` is an escape hatch for day-0 bootstrap and emergency operations — it is not the day-to-day workflow. See [GitOps Workflow](#gitops-workflow) below.
+
+**Day 1+ — Submit a change**
+
+```bash
+git checkout -b feat/add-express-route
+# Edit platform/connectivity/ or lzctl.yaml
+git push && gh pr create
+# Pipeline auto-runs: terraform validate + plan (output posted as PR comment)
+# Merge → pipeline applies in CAF layer order with pre-apply state snapshot
 ```
 
 ### Add a Workload Landing Zone
@@ -297,6 +359,43 @@ landing-zones/app-prod/blueprint  → terraform apply  (after parent zone)
 ```
 
 Both GitHub Actions and Azure DevOps pipelines are updated in a single `add-blueprint` call.
+
+## GitOps Workflow
+
+lzctl generates a complete CI/CD pipeline alongside the Terraform code. **Never run `terraform apply` directly** after day-0 — all changes are reviewed via PR and applied by the pipeline.
+
+### Push mode (GitHub Actions / Azure DevOps)
+
+```
+PR opened
+  └── validate.yml
+        ├── terraform validate (all layers, no backend)
+        ├── terraform fmt -check
+        └── terraform test (if spec.testing.enabled)
+
+PR merged → main
+  └── deploy.yml
+        ├── terraform plan (all layers) → tfplan artifacts
+        ├── Destructive action gate ← pipeline fails if any resource is destroyed
+        ├── State snapshot (pre-apply backup of all .tfstate blobs)
+        └── terraform apply (CAF layer order, uses saved tfplan)
+
+Nightly
+  └── drift.yml
+        └── terraform plan per layer → alerts on unexpected changes
+```
+
+### Pull mode (Atlantis)
+
+Atlantis owns plan and apply. The CI pipeline only lints and validates. Comment `atlantis apply` on the PR after approvals.
+
+### Destructive action gate
+
+The deploy pipeline inspects `tfplan.json` and **blocks the apply** if any resource would be destroyed. This prevents accidental deletion of hub VNets, firewalls, or management groups via a misconfiguration. To intentionally destroy a resource, delete the `tfplan.json` file in the layer directory and re-run.
+
+### State snapshots
+
+Before every apply, the pipeline creates Azure blob snapshots of all `.tfstate` files. Combined with blob versioning and soft delete on the storage account, this provides a full audit trail and point-in-time recovery. Run `lzctl state health` to verify the backend security posture at any time.
 
 ## Design Principles
 

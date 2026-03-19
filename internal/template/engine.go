@@ -96,10 +96,19 @@ func (e *Engine) RenderAll(cfg *config.LZConfig) ([]RenderedFile, error) {
 		struct{ TemplatePath, OutputPath string }{TemplatePath: "platform/governance/main.tf.tmpl", OutputPath: "platform/governance/main.tf"},
 		struct{ TemplatePath, OutputPath string }{TemplatePath: "platform/governance/variables.tf.tmpl", OutputPath: "platform/governance/variables.tf"},
 		struct{ TemplatePath, OutputPath string }{TemplatePath: "platform/governance/terraform.tfvars.tmpl", OutputPath: "platform/governance/terraform.tfvars"},
-		struct{ TemplatePath, OutputPath string }{TemplatePath: "platform/governance/policies/caf-default.tf.tmpl", OutputPath: "platform/governance/policies/caf-default.tf"},
 		struct{ TemplatePath, OutputPath string }{TemplatePath: "platform/identity/main.tf.tmpl", OutputPath: "platform/identity/main.tf"},
 		struct{ TemplatePath, OutputPath string }{TemplatePath: "platform/identity/variables.tf.tmpl", OutputPath: "platform/identity/variables.tf"},
 		struct{ TemplatePath, OutputPath string }{TemplatePath: "platform/identity/terraform.tfvars.tmpl", OutputPath: "platform/identity/terraform.tfvars"},
+	)
+
+	if cfg.Spec.Governance.Policies.EffectivePoliciesEnabled() {
+		templateToPath = append(templateToPath,
+			struct{ TemplatePath, OutputPath string }{TemplatePath: "platform/governance/policies/caf-default.tf.tmpl", OutputPath: "platform/governance/policies/caf-default.tf"},
+		)
+	}
+
+	templateToPath = append(templateToPath,
+		struct{ TemplatePath, OutputPath string }{TemplatePath: "manifest/copilot-instructions.md.tmpl", OutputPath: ".github/copilot-instructions.md"},
 	)
 
 	switch strings.ToLower(cfg.Spec.Platform.Connectivity.Type) {
@@ -154,8 +163,9 @@ func (e *Engine) RenderAll(cfg *config.LZConfig) ([]RenderedFile, error) {
 	}
 
 	ctx := map[string]interface{}{
-		"Config":  cfg,
-		"Version": "v0.1.0-dev",
+		"Config":     cfg,
+		"Version":    "v0.1.0-dev",
+		"IsPullMode": cfg.Spec.CICD.EffectiveModel() == "pull",
 	}
 
 	for _, item := range templateToPath {

@@ -199,6 +199,17 @@
           },
           "additionalProperties": false
         },
+        "bastion": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "sku": {
+              "type": "string",
+              "enum": ["Basic", "Standard"]
+            }
+          },
+          "additionalProperties": false
+        },
         "vpnGateway": {
           "$ref": "#/definitions/GatewayConfig"
         },
@@ -226,6 +237,10 @@
           "type": "object",
           "required": ["assignments"],
           "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Generate CAF default policy assignments. Defaults to true."
+            },
             "assignments": {
               "type": "array",
               "items": { "type": "string" },

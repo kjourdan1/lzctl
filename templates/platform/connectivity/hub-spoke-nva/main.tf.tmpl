@@ -13,3 +13,17 @@ resource "azurerm_route_table" "nva_routes" {
   location            = "{{ .Config.Spec.Platform.Connectivity.Hub.Region }}"
   resource_group_name = "{{ .Config.Spec.StateBackend.ResourceGroup }}"
 }
+{{- if .Config.Spec.Platform.Connectivity.Hub.Bastion.Enabled }}
+
+# --- Azure Bastion ---
+module "bastion" {
+  source  = "Azure/avm-res-network-bastionhost/azurerm"
+  version = "0.3.0"
+
+  name                 = "{{ cafName "bas" (slugify .Config.Metadata.Name) (regionShort .Config.Metadata.PrimaryRegion) }}"
+  location             = "{{ .Config.Spec.Platform.Connectivity.Hub.Region }}"
+  resource_group_name  = azurerm_resource_group.hub.name
+  virtual_network_name = module.hub_network.name
+  sku                  = "{{ if .Config.Spec.Platform.Connectivity.Hub.Bastion.SKU }}{{ .Config.Spec.Platform.Connectivity.Hub.Bastion.SKU }}{{ else }}Standard{{ end }}"
+}
+{{- end }}

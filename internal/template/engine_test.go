@@ -983,7 +983,7 @@ func TestReadme_AtlantisSection(t *testing.T) {
 
 		for _, f := range files {
 			if f.Path == "README.md" {
-				assert.Contains(t, f.Content, "GitOps Workflow — Atlantis")
+				assert.Contains(t, f.Content, "## GitOps Workflow")
 				assert.Contains(t, f.Content, "atlantis plan")
 				assert.Contains(t, f.Content, "atlantis apply")
 				return

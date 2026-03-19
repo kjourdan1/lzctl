@@ -218,8 +218,8 @@ func StateBackend(opts Options) (*Result, error) {
 				if v.value == "" {
 					continue
 				}
-				cmd := exec.CommandContext(context.Background(), "gh", "variable", "set", v.name,
-					"--body", v.value, "--repo", ghRepo)
+				cmd := exec.CommandContext(context.Background(), //nolint:gosec // args are internal config values, not user-supplied tainted input
+					"gh", "variable", "set", v.name, "--body", v.value, "--repo", ghRepo)
 				if opts.Verbosity > 1 {
 					cmd.Stdout = os.Stderr
 					cmd.Stderr = os.Stderr

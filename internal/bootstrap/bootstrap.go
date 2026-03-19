@@ -200,6 +200,51 @@ func StateBackend(opts Options) (*Result, error) {
 		green.Fprintf(os.Stderr, "   ✅ SPN ready: %s (custom role: lzctl-deployer)\n", result.SPNAppID)
 	}
 
+	// 7. Auto-configure GitHub Actions variables (non-sensitive IDs, not secrets).
+	// Uses gh CLI if available and the git remote is a GitHub repo.
+	// AZURE_CLIENT_ID / AZURE_TENANT_ID / AZURE_SUBSCRIPTION_ID are plain identifiers —
+	// GitHub recommends storing them as Variables (not Secrets) since they carry no credential.
+	if opts.GitHubOrg != "" && opts.GitHubRepo != "" && result.SPNAppID != "" {
+		if ghPath, err := exec.LookPath("gh"); err == nil && ghPath != "" {
+			bold.Fprintf(os.Stderr, "\n🔧 Configuring GitHub Actions variables...\n")
+			ghRepo := fmt.Sprintf("%s/%s", opts.GitHubOrg, opts.GitHubRepo)
+			vars := []struct{ name, value string }{
+				{"AZURE_CLIENT_ID", result.SPNAppID},
+				{"AZURE_TENANT_ID", opts.TenantID},
+				{"AZURE_SUBSCRIPTION_ID", opts.SubscriptionID},
+			}
+			allOK := true
+			for _, v := range vars {
+				if v.value == "" {
+					continue
+				}
+				cmd := exec.CommandContext(context.Background(), "gh", "variable", "set", v.name,
+					"--body", v.value, "--repo", ghRepo)
+				if opts.Verbosity > 1 {
+					cmd.Stdout = os.Stderr
+					cmd.Stderr = os.Stderr
+				}
+				if err := cmd.Run(); err != nil {
+					fmt.Fprintf(os.Stderr, "   ⚠️  Could not set %s: %v\n", v.name, err)
+					allOK = false
+				} else {
+					green.Fprintf(os.Stderr, "   ✅ %s set on %s\n", v.name, ghRepo)
+				}
+			}
+			if !allOK {
+				fmt.Fprintf(os.Stderr, "   → Set remaining variables manually in: https://github.com/%s/settings/variables/actions\n", ghRepo)
+			}
+		} else {
+			// gh CLI not available — print instructions
+			fmt.Fprintln(os.Stderr)
+			bold.Fprintf(os.Stderr, "📋 Set these GitHub Actions variables manually:\n")
+			fmt.Fprintf(os.Stderr, "   Repository : https://github.com/%s/%s/settings/variables/actions\n\n", opts.GitHubOrg, opts.GitHubRepo)
+			fmt.Fprintf(os.Stderr, "   AZURE_CLIENT_ID       = %s\n", result.SPNAppID)
+			fmt.Fprintf(os.Stderr, "   AZURE_TENANT_ID       = %s\n", opts.TenantID)
+			fmt.Fprintf(os.Stderr, "   AZURE_SUBSCRIPTION_ID = %s\n", opts.SubscriptionID)
+		}
+	}
+
 	return result, nil
 }
 

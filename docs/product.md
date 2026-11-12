@@ -1,8 +1,8 @@
 # lzctl : cadrage produit
 
 Statut : cadrage, à valider avant tout développement. Date : 2026-11-11.
-Ce document fixe **à quoi sert `lzctl`, pour qui, et comment on l'utilise**. L'architecture
-technique est dans [architecture.md](architecture.md).
+Ce document fixe **à quoi sert `lzctl`, pour qui, et comment on l'utilise**. Résumé et mise
+en route : [overview.md](overview.md). Architecture technique : [architecture.md](architecture.md).
 
 ## 1. Problème
 
@@ -88,7 +88,7 @@ l'unité livrée à un projet quand on ne crée pas de subscription.
 
 | Moment | Qui | Où | Commandes | Effet |
 |---|---|---|---|---|
-| Jour 0, une fois | Ingénieur plateforme | Poste ou Cloud Shell | `doctor`, `discover`, `init` | État de l'existant, fondation générée, state et identités fédérées amorcés |
+| Jour 0, une fois | Ingénieur plateforme | Poste ou Cloud Shell | Tenant neuf : accélérateur IaC ALZ de Microsoft, puis `lzctl init --adopt`. Tenant existant : `doctor`, `discover`, `init --adopt` | Fondation amorcée par Microsoft ou existante, reprise par `lzctl` sans rien regénérer |
 | Préparer un changement | Ingénieur plateforme | Poste, puis PR | `workload add`, `add-blueprint`, `validate` | Code généré dans une branche ; rien n'est déployé |
 | Valider une PR | Pipeline | GitHub Actions, Azure DevOps | `validate`, `preflight`, `plan` | Contrôles, refus de policies anticipés, plan publié dans la PR |
 | Déployer | Pipeline | Environnement protégé | `apply` | Application après approbation humaine |
@@ -105,6 +105,7 @@ l'unité livrée à un projet quand on ne crée pas de subscription.
 | **Contrôle préalable des policies** | `preflight` (nouveau) | Confronte le code à générer aux policies effectives (héritées comprises) ; signale les refus avant l'apply | À construire |
 | **Hygiène du parc** | `scan` (nouveau) | Ce que les analyseurs de code ne font pas : **vue de parc** sur tous les dépôts (versions de Terraform, de providers et de modules, lock files, branches par environnement, landing zones sans code) ; **intègre** les résultats de checkov, tflint ou PSRule au lieu de les refaire ; propose une configuration Renovate | À construire |
 | **Plan de remise en ordre** | `remediate` (nouveau) | À partir de `discover`, `audit` et `scan` : écarts classés par risque et par effort, chacun avec sa preuve et la PR qui le corrige (import, déplacement, mise à niveau) | À construire |
+| **Adoption** | `init --adopt` (nouveau) | Lit une fondation existante (créée par l'accélérateur IaC ALZ ou à la main) et écrit `lzctl.yaml` qui la décrit, sans regénérer ce qui existe ; `lzctl` en devient le contrôleur | À construire |
 | Génération | `init`, `workload add`, `add-blueprint` | Code Terraform standard, AVM ou modules de l'organisation | Existe ; templates à réparer (§ 11) |
 | Décision | Résolveur (via `workload add --from-request`) | Demande métier → offre, archétype, blueprint, tailles, rattachement à un service mutualisé ou création | À construire |
 | IPAM | Intégré au résolveur | Plage libre attribuée, contrôlée contre l'existant découvert | À construire |
@@ -163,17 +164,19 @@ Découverte, évaluation contre CAF, import dans le code, puis gestion comme le 
 |---|---|---|
 | 1 | **Réparer et tester la génération existante** : CI qui exécute `init` et `validate` sur la sortie de chaque profil et blueprint ; blueprints placés dans la landing zone ou la zone applicative, pas dans le hub ; contrat de sorties explicite entre couches | Une génération cassée ruine toute démonstration |
 | 2 | **`discover`** (lecture seule) | Base de toutes les autres briques |
-| 3 | **Périmètre `subscriptions` et zones applicatives** | Le cas le plus fréquent en entreprise |
-| 4 | **`scan`** (hygiène de parc, intégration des analyseurs existants) et **`remediate`** | Mission « remettre de l'ordre » ; valeur immédiate, sans déploiement |
-| 5 | **`preflight`** sur les policies effectives | Fiabilise chaque livraison |
-| 6 | **Catalogue et templates surchargeables** (modules, nommage, pipelines de l'organisation) | Condition d'adoption dans un existant |
-| 7 | **Demande, résolveur, IPAM, réutilisation** (`--from-request`) | Contrat de la console |
-| 8 | **Interface pour agents** (serveur MCP, § 13) | Rend chaque brique utilisable par un agent, avec les mêmes garde-fous |
-| 9 | **Connectivité de niveau tenant** (hub, firewall, règles en données), seulement si l'accélérateur ALZ ne la couvre pas | Le jour 0 relève de Microsoft |
+| 3 | **Mode adoption** (`init --adopt`) : reprendre une fondation créée par l'accélérateur IaC ALZ ou existante, sans rien regénérer | Condition pour se placer au-dessus de Microsoft ; point d'entrée des tenants neufs comme existants |
+| 4 | **Périmètre `subscriptions` et zones applicatives** | Le cas le plus fréquent en entreprise |
+| 5 | **`scan`** (hygiène de parc, intégration des analyseurs existants) et **`remediate`** | Mission « remettre de l'ordre » ; valeur immédiate, sans déploiement |
+| 6 | **`preflight`** sur les policies effectives | Fiabilise chaque livraison |
+| 7 | **Catalogue et templates surchargeables** (modules, nommage, pipelines de l'organisation) | Condition d'adoption dans un existant |
+| 8 | **Demande, résolveur, IPAM, réutilisation** (`--from-request`) | Contrat de la console |
+| 9 | **Interface pour agents** (serveur MCP, § 13) | Rend chaque brique utilisable par un agent, avec les mêmes garde-fous |
+| 10 | **Connectivité de niveau tenant** (hub, firewall, règles en données), seulement si l'accélérateur ALZ ne la couvre pas | Le jour 0 relève de Microsoft |
 
-Validation de bout en bout : un tenant vierge (périmètre `tenant`), une fois le point 1 vert ;
-le périmètre `subscriptions` se valide en simulant une entité dans une sous-hiérarchie de ce
-tenant, avec des policies posées au-dessus d'elle.
+Validation de bout en bout : un tenant vierge (périmètre `tenant`), amorcé par l'accélérateur
+IaC ALZ puis repris par `init --adopt`, une fois les points 1 à 3 verts ; le périmètre
+`subscriptions` se valide en simulant une entité dans une sous-hiérarchie de ce tenant, avec
+des policies posées au-dessus d'elle.
 
 ## 12. Modèle de confiance
 

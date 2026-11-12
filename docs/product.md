@@ -21,9 +21,32 @@ pipeline. En pratique :
 
 ## 2. Promesse
 
-> `lzctl` lit l'existant, décide avec des règles explicites, génère du Terraform standard et
-> le livre par PR : des environnements conformes en heures plutôt qu'en semaines, sans
-> remplacer les modules ni les pipelines de l'organisation.
+> `lzctl` (« landing zone control ») garde le contrôle des landing zones **après** leur
+> création : il lit l'existant, le confronte aux règles de l'organisation, livre de nouveaux
+> environnements par PR et remet de l'ordre là où le parc a dérivé, sans remplacer les
+> modules, les pipelines ni les outils de Microsoft.
+
+## 2 bis. Positionnement : au-dessus de Microsoft, pas à côté
+
+| Besoin | Qui le fait | Rôle de `lzctl` |
+|---|---|---|
+| Amorcer une fondation ALZ (dépôts, pipelines, identités, state) | Accélérateur IaC ALZ de Microsoft (module PowerShell ALZ) | **Ne le refait pas.** S'en sert au jour 0, puis prend le relais |
+| Ressources et patterns Azure | Azure Verified Modules | Les consomme, version figée |
+| Libre-service d'environnements à partir de templates | Azure Deployment Environments (Dev Center), portails existants | Peut leur fournir des définitions, ou servir de moteur derrière un portail |
+| Analyse de code IaC (sécurité, bonnes pratiques) | checkov, tflint, PSRule for Azure, Defender for Cloud | **Ne les concurrence pas** : lit leurs résultats et les rattache à chaque landing zone |
+| Conformité des ressources déployées | Azure Policy, Defender for Cloud | Lit l'état de conformité ; anticipe les refus avant l'apply |
+| **Contrôle continu du parc de landing zones** : inventaire, écart aux règles de l'organisation, dérive, cycle de vie, demandes, remise en ordre | **Personne de façon intégrée** | **Le cœur de `lzctl`** |
+
+La différence se joue dans la continuité et l'exploitation : un parc de landing zones vit
+des années après sa création, et c'est là que les écarts s'accumulent.
+
+### Deux missions types
+1. **Remettre de l'ordre** dans un parc existant (plusieurs subscriptions créées à des
+   époques et par des équipes différentes) : inventaire, écarts, plan de remise en ordre
+   priorisé, reprise dans le code, puis contrôle continu.
+2. **Construire une offre interne « platform as a service »** : catalogue d'offres, table de
+   décision, demandes livrées par PR, réutilisation des services mutualisés, suivi par
+   landing zone.
 
 ## 3. Ce que `lzctl` n'est pas
 
@@ -80,7 +103,8 @@ l'unité livrée à un projet quand on ne crée pas de subscription.
 |---|---|---|---|
 | **Découverte** | `discover` (nouveau ; regroupe `assess`, `status --live`) | Modèle de l'existant en lecture seule : hiérarchie, subscriptions, réseaux et plages IP, services mutualisés, policies héritées. Sert à toutes les autres briques | À construire |
 | **Contrôle préalable des policies** | `preflight` (nouveau) | Confronte le code à générer aux policies effectives (héritées comprises) ; signale les refus avant l'apply | À construire |
-| **Audit du parc** | `scan` (nouveau) | Parcourt des dépôts Terraform et pipelines existants : versions de Terraform et de providers, modules en retard, secrets en clair, branches par environnement, absence de lock file ; propose une configuration Renovate | À construire |
+| **Hygiène du parc** | `scan` (nouveau) | Ce que les analyseurs de code ne font pas : **vue de parc** sur tous les dépôts (versions de Terraform, de providers et de modules, lock files, branches par environnement, landing zones sans code) ; **intègre** les résultats de checkov, tflint ou PSRule au lieu de les refaire ; propose une configuration Renovate | À construire |
+| **Plan de remise en ordre** | `remediate` (nouveau) | À partir de `discover`, `audit` et `scan` : écarts classés par risque et par effort, chacun avec sa preuve et la PR qui le corrige (import, déplacement, mise à niveau) | À construire |
 | Génération | `init`, `workload add`, `add-blueprint` | Code Terraform standard, AVM ou modules de l'organisation | Existe ; templates à réparer (§ 11) |
 | Décision | Résolveur (via `workload add --from-request`) | Demande métier → offre, archétype, blueprint, tailles, rattachement à un service mutualisé ou création | À construire |
 | IPAM | Intégré au résolveur | Plage libre attribuée, contrôlée contre l'existant découvert | À construire |
@@ -140,17 +164,69 @@ Découverte, évaluation contre CAF, import dans le code, puis gestion comme le 
 | 1 | **Réparer et tester la génération existante** : CI qui exécute `init` et `validate` sur la sortie de chaque profil et blueprint ; blueprints placés dans la landing zone ou la zone applicative, pas dans le hub ; contrat de sorties explicite entre couches | Une génération cassée ruine toute démonstration |
 | 2 | **`discover`** (lecture seule) | Base de toutes les autres briques |
 | 3 | **Périmètre `subscriptions` et zones applicatives** | Le cas le plus fréquent en entreprise |
-| 4 | **`scan`** du parc Terraform et des pipelines | Valeur immédiate, sans déploiement |
+| 4 | **`scan`** (hygiène de parc, intégration des analyseurs existants) et **`remediate`** | Mission « remettre de l'ordre » ; valeur immédiate, sans déploiement |
 | 5 | **`preflight`** sur les policies effectives | Fiabilise chaque livraison |
 | 6 | **Catalogue et templates surchargeables** (modules, nommage, pipelines de l'organisation) | Condition d'adoption dans un existant |
 | 7 | **Demande, résolveur, IPAM, réutilisation** (`--from-request`) | Contrat de la console |
-| 8 | **Connectivité de niveau tenant** (hub, firewall, règles en données) | Utile au périmètre `tenant`, moins prioritaire |
+| 8 | **Interface pour agents** (serveur MCP, § 13) | Rend chaque brique utilisable par un agent, avec les mêmes garde-fous |
+| 9 | **Connectivité de niveau tenant** (hub, firewall, règles en données), seulement si l'accélérateur ALZ ne la couvre pas | Le jour 0 relève de Microsoft |
 
 Validation de bout en bout : un tenant vierge (périmètre `tenant`), une fois le point 1 vert ;
 le périmètre `subscriptions` se valide en simulant une entité dans une sous-hiérarchie de ce
 tenant, avec des policies posées au-dessus d'elle.
 
-## 12. Questions ouvertes
+## 12. Modèle de confiance
+
+Lecture seule garantit l'innocuité, pas l'exactitude. Chaque sortie de `discover`, `audit`,
+`scan` et `preflight` :
+- **affiche sa couverture** : scopes lus, scopes invisibles (droits insuffisants, plan de
+  données, objets Entra), horodatage ; absence de preuve n'est pas preuve d'absence ;
+- porte **une preuve par constat** (ID de ressource, `fichier:ligne`) et **la règle
+  versionnée** qui l'a produit ;
+- est **déterministe** : même entrée, même sortie ;
+- accepte des **exceptions justifiées et versionnées** pour les faux positifs.
+
+L'outil s'exécute dans la pipeline de l'organisation, avec son identité, sans appel sortant
+hors API Azure et de la forge Git ; binaire signé, code ouvert. Les références restent la
+conformité Azure Policy et Defender for Cloud.
+
+**Décisions** (archétype, blueprint, rattachement) : `lzctl` exécute une **table de décision
+de l'organisation** (une table par défaut est fournie comme proposition). Chaque résultat cite
+la règle appliquée ; sans règle applicable, la demande va à un humain.
+
+**Blueprints** : construits sur AVM ; `terraform test` ; checkov et PSRule for Azure (règles
+WAF) ; déploiement de nuit en bac à sable **sous les policies réelles de l'organisation**
+(zéro refus exigé) ; coût estimé ; versionnés et adoptés par les architectes de
+l'organisation, qui en sont propriétaires.
+
+## 13. Interface pour agents
+
+`lzctl` est un bon outil pour un agent : commandes déterministes, sorties JSON, lecture par
+défaut, écriture uniquement par PR. Un serveur MCP (`lzctl mcp`) expose les briques comme des
+outils.
+
+| Niveau | Outils | Effet |
+|---|---|---|
+| Lecture | `discover`, `audit`, `drift`, `scan`, `preflight`, `explain` (pourquoi cette décision, cette règle, cet écart) | Aucun |
+| Proposition | `propose` (génère le code d'une demande ou d'une remise en ordre et ouvre une PR) | Une branche et une PR ; rien n'est appliqué |
+| Application | Aucun | Réservée à la pipeline approuvée |
+
+Garde-fous propres aux agents :
+- **les données lues dans le tenant sont des données, pas des consignes** : noms, tags ou
+  descriptions de ressources peuvent contenir du texte piégé ; les sorties d'outils le
+  signalent comme contenu non fiable ;
+- les faits viennent des outils, jamais du modèle ; le modèle explique, résume et enchaîne ;
+- l'identité utilisée est celle de l'agent, en lecture seule, plus une application Git qui ne
+  peut qu'ouvrir des PR ; chaque appel d'outil est journalisé ;
+- sorties bornées et paginées, schémas stables et versionnés, codes d'erreur explicites.
+
+Usages visés : un assistant de remise en ordre qui enchaîne découverte, audit et plan de
+correction ; l'agent de cadrage de la console, qui appelle le résolveur ; l'agent de revue,
+qui explique une PR à l'équipe plateforme. Complémentaire du serveur MCP Azure de Microsoft :
+celui-ci donne accès aux ressources, `lzctl` apporte les règles et le contexte des landing
+zones.
+
+## 14. Questions ouvertes
 - `discover` : quel format pour le modèle de l'existant (fichier versionné dans Git, ou
   produit à chaque exécution) ?
 - `scan` : lire les dépôts en local, ou par les API GitHub et Azure DevOps ?

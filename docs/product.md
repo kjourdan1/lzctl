@@ -1,240 +1,258 @@
 # lzctl : cadrage produit
 
-Statut : cadrage, à valider avant tout développement. Date : 2026-11-11.
+Statut : cadrage (deuxième version), **à réaligner** sur le brief
+[`bmad-output/product-brief-lzctl-2026-11-13.md`](../bmad-output/product-brief-lzctl-2026-11-13.md),
+qui fait foi pour la direction. Date : 2026-11-12.
 Ce document fixe **à quoi sert `lzctl`, pour qui, et comment on l'utilise**. Résumé et mise
 en route : [overview.md](overview.md). Architecture technique : [architecture.md](architecture.md).
 
 ## 1. Problème
 
-Dans une organisation sur Azure, chaque nouveau projet a besoin d'un environnement prêt :
-subscription ou resource groups, réseau raccordé, droits, policies, identités, budget,
-pipeline. En pratique :
+Trois situations vécues dans des dépôts IaC Azure, avec une racine commune : **on ne voit pas
+ce qu'un changement va provoquer au-delà du diff, et aucune stack n'est construite comme la
+voisine**.
 
-- la mise à disposition prend des semaines de tickets et de copier-coller entre dépôts
-  Terraform ;
-- chaque copie dérive des standards (versions de Terraform et de providers hétérogènes,
-  modules en retard, nommage incohérent) ;
-- les refus de policies se découvrent au moment de l'apply ;
-- personne ne sait précisément ce qui est déployé au regard de ce qui est dans le code ;
-- des services mutualisés existent (passerelle d'API, cluster, base partagée), mais chaque
-  projet recrée les siens.
+1. **Le déploiement qui écrase un changement fait hors code.** Une spécification OpenAPI est
+   modifiée au fil de l'eau dans le portail, sans que personne d'autre le sache. Le
+   déploiement suivant réapplique le `api.yml` du dépôt, en retard, et l'API de production
+   devient inaccessible. Le plan Terraform n'avait rien signalé.
+2. **Les modules maison qu'on n'ose plus faire évoluer.** Les modules sont versionnés par tags
+   Git dans un dépôt à part. Leur auteur ne voit ni qui les consomme, ni ce qu'une nouvelle
+   version casserait chez chacun. Résultat : les modules ne bougent plus.
+3. **Chaque stack est écrite à la main.** Une ressource et ses à-côtés (un compte de stockage,
+   ses conteneurs, ses private endpoints) sont recopiés et adaptés d'un projet à l'autre ; les
+   ouvertures de flux réseau se demandent à part, par ticket.
 
 ## 2. Promesse
 
-> `lzctl` (« landing zone control ») garde le contrôle des landing zones **après** leur
-> création : il lit l'existant, le confronte aux règles de l'organisation, livre de nouveaux
-> environnements par PR et remet de l'ordre là où le parc a dérivé, sans remplacer les
-> modules, les pipelines ni les outils de Microsoft.
+> `lzctl` standardise les stacks d'un dépôt IaC Azure et rend chaque déploiement prévisible :
+> il génère une stack à partir d'un contrat, contrôle chaque PR contre ce contrat et contre
+> l'existant, et signale ce qui a changé hors pipeline.
 
-## 2 bis. Positionnement : au-dessus de Microsoft, pas à côté
+Le but est un outil **utilisable en production** (critères au § 10), qui tourne à chaque PR
+dans la pipeline, pas seulement le jour où l'on crée quelque chose.
 
-| Besoin | Qui le fait | Rôle de `lzctl` |
-|---|---|---|
-| Amorcer une fondation ALZ (dépôts, pipelines, identités, state) | Accélérateur IaC ALZ de Microsoft (module PowerShell ALZ) | **Ne le refait pas.** S'en sert au jour 0, puis prend le relais |
-| Ressources et patterns Azure | Azure Verified Modules | Les consomme, version figée |
-| Libre-service d'environnements à partir de templates | Azure Deployment Environments (Dev Center), portails existants | Peut leur fournir des définitions, ou servir de moteur derrière un portail |
-| Analyse de code IaC (sécurité, bonnes pratiques) | checkov, tflint, PSRule for Azure, Defender for Cloud | **Ne les concurrence pas** : lit leurs résultats et les rattache à chaque landing zone |
-| Conformité des ressources déployées | Azure Policy, Defender for Cloud | Lit l'état de conformité ; anticipe les refus avant l'apply |
-| **Contrôle continu du parc de landing zones** : inventaire, écart aux règles de l'organisation, dérive, cycle de vie, demandes, remise en ordre | **Personne de façon intégrée** | **Le cœur de `lzctl`** |
+## 3. Vocabulaire
 
-La différence se joue dans la continuité et l'exploitation : un parc de landing zones vit
-des années après sa création, et c'est là que les écarts s'accumulent.
+| Terme | Sens |
+|---|---|
+| **Stack** | Une ressource principale et ses à-côtés, déployés ensemble avec leur propre state. Exemple : un compte de stockage, ses conteneurs, ses private endpoints. C'est ce que la console appellera une « platform » |
+| **Contrat de stack** | Le fichier déclaratif qui décrit une stack : type, propriétaire, paramètres, flux réseau, rattachements, propriété du contenu (§ 7) |
+| **Zone applicative** | Le périmètre qui reçoit les stacks d'un projet : subscription ou resource groups, subnets, droits. Premier périmètre visé |
+| **Catalogue** | Les types de stack disponibles, construits sur les modules maison de l'organisation (ou sur AVM) |
+| **Demande** | L'expression d'un besoin, dans un schéma fixe, qui produit un contrat de stack |
 
-### Deux missions types
-1. **Remettre de l'ordre** dans un parc existant (plusieurs subscriptions créées à des
-   époques et par des équipes différentes) : inventaire, écarts, plan de remise en ordre
-   priorisé, reprise dans le code, puis contrôle continu.
-2. **Construire une offre interne « platform as a service »** : catalogue d'offres, table de
-   décision, demandes livrées par PR, réutilisation des services mutualisés, suivi par
-   landing zone.
+## 4. Ce que `lzctl` n'est pas
 
-## 3. Ce que `lzctl` n'est pas
-
-- **Pas un service.** C'est une CLI sans état ; elle s'exécute sur un poste ou dans une
-  pipeline existante. Rien de plus à héberger.
-- **Pas un outil de déploiement direct.** Elle génère et orchestre ; seule une pipeline
+- **Pas un service.** Une CLI sans état, exécutée sur un poste ou dans une pipeline existante.
+- **Pas un outil de déploiement direct.** Elle génère et contrôle ; seule une pipeline
   approuvée applique.
 - **Pas un enfermement.** Le code produit est du Terraform standard, qui fonctionne sans
   `lzctl`.
-- **Pas un remplaçant de l'existant.** Elle s'adapte aux modules, au nommage et aux templates
-  de pipeline de l'organisation.
-- **Pas un portail.** La console est une façade séparée, sans logique métier (§ 8).
+- **Pas un LLM.** Tout ce que fait `lzctl` est déterministe. Un LLM peut l'appeler (§ 13),
+  jamais l'inverse, et il n'écrit pas le Terraform.
+- **Pas un outil de fondation.** Hiérarchie, policies et hub relèvent de l'accélérateur IaC
+  ALZ de Microsoft ou de l'existant ; `lzctl` les lit.
+- **Pas un portail.** La console est une façade séparée, sans logique métier (§ 13).
 
-## 4. Utilisateurs
+## 5. Positionnement
+
+`lzctl` ne remplace aucun des outils ci-dessous ; il apporte ce qui leur manque : **le
+contexte de la plateforme**.
+
+| Besoin | Qui le fait déjà | Rôle de `lzctl` |
+|---|---|---|
+| Fondation ALZ | Accélérateur IaC ALZ de Microsoft | Hors périmètre ; lue, pas générée |
+| Ressources et patterns | Modules maison, Azure Verified Modules | Les consomme comme catalogue |
+| Analyse de code IaC | checkov, tflint, PSRule for Azure | Ne les refait pas |
+| Conformité des ressources | Azure Policy, Defender for Cloud | Ne les refait pas |
+| PR de montée de version | Renovate | S'appuie dessus ; ajoute l'analyse d'impact |
+| Dérive visible par Terraform | `terraform plan` planifié | Existe déjà dans la pipeline générée |
+| **Écritures hors pipeline, y compris sur ce que Terraform ne relit pas** | À vérifier (§ 15) | **Cœur de `lzctl`** |
+| **Impact d'une version de module sur tous ses consommateurs** | À vérifier (§ 15) | **Cœur de `lzctl`** |
+| **Stack standardisée par contrat, flux réseau compris** | Personne de façon intégrée | **Cœur de `lzctl`** |
+
+## 6. Utilisateurs
 
 | Persona | Besoin | Interface |
 |---|---|---|
-| **Ingénieur plateforme** | Poser et faire évoluer la fondation, livrer des environnements, garder le parc à jour | CLI, PR |
-| **Pipeline** | Valider, planifier, appliquer, surveiller sans humain au clavier | CLI en mode non interactif, sorties JSON, codes de retour |
-| **Équipe sécurité et conformité** | Savoir ce qui est conforme et ce qui dérive | Rapports `audit`, `drift`, contrôle préalable des policies |
-| **Équipe projet ou métier** | Obtenir un environnement sans connaître Azure | Console (demande en langage naturel), jamais la CLI |
-| **FinOps, direction** | Délai de mise à disposition, coûts, inventaire fiable | Console, rapports |
+| **Ingénieur plateforme** (principal) | Livrer des stacks identiques, déployer sans surprise | CLI, PR |
+| **Pipeline** | Contrôler chaque PR, surveiller chaque nuit | CLI non interactive, sorties JSON, codes de retour |
+| **Auteur de module** | Publier une version en connaissant son impact | Rapport d'impact dans la PR du module |
+| **Relecteur, équipes réseau et sécurité** | Comprendre une PR sans relire le plan ligne à ligne | Commentaire de PR : constats, flux demandés |
+| **Équipe non technique** (plus tard) | Obtenir une stack sans connaître Azure | Console, jamais la CLI |
 
-## 5. Périmètres : ce que l'on possède vraiment
+## 7. Le contrat de stack
 
-Le périmètre se déclare dans `lzctl.yaml`. Il détermine ce que `lzctl` génère, et ce qu'il se
-contente de lire.
+Un fichier par stack, versionné avec son code. Exemple illustratif (schéma à définir) :
 
-| Périmètre | Situation typique | Ce que `lzctl` gère | Ce que `lzctl` lit seulement |
-|---|---|---|---|
-| `tenant` | Organisation qui possède son tenant (greenfield ou refonte) | Management groups, policies, identités de plateforme, management, connectivité (hub), landing zones (subscriptions) | — |
-| `managementGroup` | Filiale à qui le groupe délègue une branche de la hiérarchie | Sous-hiérarchie déléguée, ses policies, ses subscriptions, éventuellement son hub | Hiérarchie et policies du groupe au-dessus |
-| `subscriptions` | Entité « spoke » d'un grand groupe : quelques subscriptions, un VNet attribué ou non | **Zones applicatives** dans les subscriptions : resource groups, subnets (si le VNet est à elle), RBAC, identités, budget, diagnostics, Key Vault | Policies héritées, hub, DNS et services du groupe |
+```yaml
+kind: Stack
+metadata:
+  name: archive-factures
+  zone: app-facturation-prd
+  owner: equipe-facturation
+spec:
+  type: storage-private          # entrée du catalogue
+  moduleVersion: 1.4.0           # version du module maison
+  inputs:
+    containers: [factures, exports]
+    redundancy: ZRS
+  flows:                         # ouvertures de flux nécessaires
+    - from: snet-app-facturation
+      to: self
+      port: 443
+      reason: lecture et écriture depuis l'application
+  outOfBand: deny                # deny | report, avec exceptions par ressource
+```
 
-Une **zone applicative** est l'équivalent d'une landing zone au niveau d'une subscription :
-l'unité livrée à un projet quand on ne crée pas de subscription.
+Quatre usages du même contrat :
 
-## 6. Cycle d'utilisation
+| Usage | Fréquence | Ce que fait `lzctl` |
+|---|---|---|
+| **Créer** | À la demande | Génère le code de la stack, son contrat et son entrée dans la pipeline |
+| **Contrôler** | Chaque PR | Vérifie que le changement respecte le contrat et n'écrase rien |
+| **Surveiller** | Chaque nuit | Relève les écritures hors pipeline sur la stack |
+| **Faire évoluer** | À chaque version de module | Indique quelles stacks sont touchées, et comment |
 
-| Moment | Qui | Où | Commandes | Effet |
-|---|---|---|---|---|
-| Jour 0, une fois | Ingénieur plateforme | Poste ou Cloud Shell | Tenant neuf : accélérateur IaC ALZ de Microsoft, puis `lzctl init --adopt`. Tenant existant : `doctor`, `discover`, `init --adopt` | Fondation amorcée par Microsoft ou existante, reprise par `lzctl` sans rien regénérer |
-| Préparer un changement | Ingénieur plateforme | Poste, puis PR | `workload add`, `add-blueprint`, `validate` | Code généré dans une branche ; rien n'est déployé |
-| Valider une PR | Pipeline | GitHub Actions, Azure DevOps | `validate`, `preflight`, `plan` | Contrôles, refus de policies anticipés, plan publié dans la PR |
-| Déployer | Pipeline | Environnement protégé | `apply` | Application après approbation humaine |
-| Surveiller | Pipeline planifiée | GitHub Actions, Azure DevOps | `drift`, `audit`, `scan` | Rapports, alertes |
-| Maintenir | Bot | PR | `upgrade` (et Renovate) | Montées de version proposées par PR |
+**Flux réseau.** Les flux déclarés sont rattachés à la PR. Si la règle se pose dans le
+périmètre de la zone (NSG), le code est généré. Si elle relève d'un pare-feu que l'équipe ne
+possède pas, la PR porte la demande de flux, prête à transmettre à l'équipe réseau.
 
-**Règle : un humain génère et propose, seule une pipeline déploie.**
+**Propriété du contenu.** `outOfBand` dit ce qu'il advient d'une écriture hors pipeline :
+refusée, ou simplement signalée. Une exception par ressource permet de sortir du contrôle un
+contenu qui appartient à une autre équipe (une spécification d'API, par exemple).
 
-## 7. Briques fonctionnelles
+## 8. Le workflow complet
+
+`lzctl` est un outil du workflow, pas le workflow entier.
+
+| Étape | Qui | Rôle de `lzctl` |
+|---|---|---|
+| 1. Exprimer le besoin | Ingénieur (fichier de demande) ; plus tard équipe non technique (console) | Fournit le schéma de demande |
+| 2. Produire la stack | Ingénieur ou console | Contrat, code Terraform, entrée de pipeline, à partir du catalogue |
+| 3. Proposer | Ingénieur ou console | Branche et PR ; plan, constats et flux demandés en commentaire |
+| 4. Valider | Humains (plateforme, réseau, sécurité) | Aucun ; la décision reste humaine |
+| 5. Déployer | Pipeline approuvée | Contrôle final avant apply (écritures hors pipeline) |
+| 6. Surveiller | Pipeline planifiée | Relevé nocturne par stack |
+| 7. Faire évoluer | Auteur de module, Renovate | Rapport d'impact, PR de montée de version |
+
+**Règle : un humain ou un agent propose, un humain valide, seule une pipeline déploie.**
+
+## 9. Briques fonctionnelles
+
+Les noms de commandes sont des propositions.
 
 | Brique | Commande | Rôle | État |
 |---|---|---|---|
-| **Découverte** | `discover` (nouveau ; regroupe `assess`, `status --live`) | Modèle de l'existant en lecture seule : hiérarchie, subscriptions, réseaux et plages IP, services mutualisés, policies héritées. Sert à toutes les autres briques | À construire |
-| **Contrôle préalable des policies** | `preflight` (nouveau) | Confronte le code à générer aux policies effectives (héritées comprises) ; signale les refus avant l'apply | À construire |
-| **Hygiène du parc** | `scan` (nouveau) | Ce que les analyseurs de code ne font pas : **vue de parc** sur tous les dépôts (versions de Terraform, de providers et de modules, lock files, branches par environnement, landing zones sans code) ; **intègre** les résultats de checkov, tflint ou PSRule au lieu de les refaire ; propose une configuration Renovate | À construire |
-| **Plan de remise en ordre** | `remediate` (nouveau) | À partir de `discover`, `audit` et `scan` : écarts classés par risque et par effort, chacun avec sa preuve et la PR qui le corrige (import, déplacement, mise à niveau) | À construire |
-| **Adoption** | `init --adopt` (nouveau) | Lit une fondation existante (créée par l'accélérateur IaC ALZ ou à la main) et écrit `lzctl.yaml` qui la décrit, sans regénérer ce qui existe ; `lzctl` en devient le contrôleur | À construire |
-| Génération | `init`, `workload add`, `add-blueprint` | Code Terraform standard, AVM ou modules de l'organisation | Existe ; templates à réparer (§ 11) |
-| Décision | Résolveur (via `workload add --from-request`) | Demande métier → offre, archétype, blueprint, tailles, rattachement à un service mutualisé ou création | À construire |
-| IPAM | Intégré au résolveur | Plage libre attribuée, contrôlée contre l'existant découvert | À construire |
-| Orchestration | `plan`, `apply`, `rollback` | Couches dans l'ordre de dépendance | Existe |
-| Conformité | `audit`, `drift`, `policy *` | Score CAF, dérive, cycle de vie des policies | Existe |
+| **Garde hors pipeline** | `check` (PR), `drift` étendu (nuit) | Pour chaque ressource du plan : écritures faites par une autre identité que la pipeline depuis le dernier déploiement (journal d'activité Azure) ; comparaison de contenu pour ce que Terraform ne relit pas (spécification d'API) | À construire |
+| **Consommateurs de modules** | `module consumers` | Quels dépôts utilisent quel module, à quelle version, avec quelles variables | À construire |
+| **Différence d'interface** | `module diff` | Entre deux versions : variable supprimée, renommée ou devenue obligatoire, sortie retirée, ressource déplacée sans bloc `moved` | À construire |
+| **Impact** | `module impact` | Plan de chaque consommateur avec la nouvelle version, résultat agrégé | À construire |
+| **Contrat de stack** | `stack new`, `validate` | Génération depuis le catalogue ; validation du contrat | À construire (remplace `workload add` et `add-blueprint`) |
+| **Conformité au contrat** | `check` | Le plan reste dans le périmètre de la stack ; flux du plan égaux aux flux déclarés ; changements sensibles en tête (destructions, rôle Owner, exposition publique) | À construire |
+| **Découverte** | `discover` | Modèle minimal de l'existant en lecture seule : zones, réseaux et plages IP, services mutualisés | À construire |
+| **Proposition** | `propose` | Branche et PR à partir d'une demande | À construire |
+| Pipelines | `init` (partie pipelines) | Pipelines GitHub Actions et Azure DevOps : validation, plan, garde des destructions, apply | Existe |
+| Orchestration | `plan`, `apply` | Couches dans l'ordre de dépendance | Existe |
 | Maintenance | `upgrade` | Versions AVM | Existe |
-| Reprise | `import`, `select` | Import de l'existant | Existe |
 
-## 8. CLI et console
+**Hors du chemin principal**, conservé mais marqué expérimental : génération de la fondation
+(management groups, connectivité, identité, gouvernance), blueprints, `audit` CAF, cycle de
+vie des policies, `rollback`, commandes de state, Atlantis.
 
-| | `lzctl` (CLI) | Console |
-|---|---|---|
-| Pour qui | Ingénieurs plateforme, pipelines | Équipes projet ; vue d'ensemble pour l'équipe plateforme |
-| Rôle | Le moteur : découvrir, décider, générer, valider, orchestrer, auditer | La façade : recueillir une demande, suivre son statut, afficher coûts, dérive, conformité |
-| Logique métier | Toute : schéma de demande, résolveur, IPAM, règles de réutilisation | Aucune ; elle dépose une demande en PR et lit les sorties JSON de `lzctl` |
-| Exécution | Pipeline | N'exécute jamais `lzctl` ; la PR déclenche la pipeline |
+État vérifié le 2026-11-12 sur la sortie de `init --from-file` : les couches management
+groups et connectivité ne passent pas `terraform init` (arguments inconnus des modules AVM
+épinglés) ; le manifeste généré ne contient pas les landing zones pourtant créées sur disque.
 
-Une seule source de vérité pour les règles : si la console en avait, elles divergeraient.
-Une organisation qui a déjà un portail peut l'utiliser à la place de la console : le contrat
-est la demande (schéma) et la PR, pas l'interface.
+## 10. « Utilisable en production » : critères
 
-## 9. Cas d'usage et valeur
-
-### A. Organisation qui possède son tenant (greenfield)
-Fondation ALZ complète en quelques heures depuis un fichier déclaratif, landing zones par PR,
-audit et dérive continus.
-
-### B. Entité dans un grand groupe (périmètre `subscriptions`)
-Situation : le groupe possède le tenant, la hiérarchie, les policies et le hub ; l'entité a
-des subscriptions avec des resource groups, du Terraform, des pipelines et des validations.
-
-| Apport | Valeur |
+| Critère | Exigence |
 |---|---|
-| `scan` du parc existant | Valeur dès le premier jour, sans rien déployer : rapport d'hygiène et plan de remise à niveau |
-| `preflight` sur les policies du groupe | Plus de déploiement refusé découvert à l'apply |
-| Zones applicatives par demande | Un projet obtient un environnement conforme en heures |
-| Réutilisation de l'existant | Les services mutualisés découverts sont proposés avant toute création |
-| Adaptation aux standards | Le code généré utilise les modules, le nommage et les templates de pipeline de l'entité ; son Terraform existant continue de tourner |
+| Génération fiable | La CI exécute `terraform validate` et `terraform test` sur la sortie de chaque type de stack |
+| Déterminisme | Même contrat, même code ; même entrée, même constat |
+| Innocuité | Identité en lecture seule pour tous les contrôles ; aucune écriture Azure hors pipeline approuvée |
+| Échec explicite | Un contrôle qui n'a pas pu lire le dit et ne passe jamais en silence |
+| Adoption progressive | Chaque contrôle peut être informatif avant d'être bloquant ; exceptions justifiées et versionnées |
+| Intégration | Azure DevOps et GitHub ; un commentaire de PR unique mis à jour ; sortie JSON ; codes de retour stables |
+| Compatibilité | Schéma du contrat versionné, migration fournie à chaque changement |
+| Distribution | Binaire signé, versions sémantiques, notes de version |
+| Preuve | Validé sur un tenant réel, puis sur un parc qui n'est pas celui de l'auteur |
 
-### C. Reprise d'un existant non géré (brownfield)
-Découverte, évaluation contre CAF, import dans le code, puis gestion comme le reste.
-
-## 10. Indicateurs de succès
-
-| Indicateur | Cible indicative |
-|---|---|
-| Délai entre une demande et un environnement prêt (approbation comprise) | Moins d'une journée |
-| Part des environnements conformes au score d'audit | 100 % à la création |
-| Refus de policy découverts à l'apply | Zéro (anticipés par `preflight`) |
-| Écart de version entre stacks (Terraform, providers) | Une version cible, écarts proposés en PR |
-| Actions manuelles dans le portail Azure pour livrer un environnement | Zéro |
-
-## 11. Priorités révisées
+## 11. Priorités
 
 | Ordre | Chantier | Raison |
 |---|---|---|
-| 1 | **Réparer et tester la génération existante** : CI qui exécute `init` et `validate` sur la sortie de chaque profil et blueprint ; blueprints placés dans la landing zone ou la zone applicative, pas dans le hub ; contrat de sorties explicite entre couches | Une génération cassée ruine toute démonstration |
-| 2 | **`discover`** (lecture seule) | Base de toutes les autres briques |
-| 3 | **Mode adoption** (`init --adopt`) : reprendre une fondation créée par l'accélérateur IaC ALZ ou existante, sans rien regénérer | Condition pour se placer au-dessus de Microsoft ; point d'entrée des tenants neufs comme existants |
-| 4 | **Périmètre `subscriptions` et zones applicatives** | Le cas le plus fréquent en entreprise |
-| 5 | **`scan`** (hygiène de parc, intégration des analyseurs existants) et **`remediate`** | Mission « remettre de l'ordre » ; valeur immédiate, sans déploiement |
-| 6 | **`preflight`** sur les policies effectives | Fiabilise chaque livraison |
-| 7 | **Catalogue et templates surchargeables** (modules, nommage, pipelines de l'organisation) | Condition d'adoption dans un existant |
-| 8 | **Demande, résolveur, IPAM, réutilisation** (`--from-request`) | Contrat de la console |
-| 9 | **Interface pour agents** (serveur MCP, § 13) | Rend chaque brique utilisable par un agent, avec les mêmes garde-fous |
-| 10 | **Connectivité de niveau tenant** (hub, firewall, règles en données), seulement si l'accélérateur ALZ ne la couvre pas | Le jour 0 relève de Microsoft |
+| 1 | **Dire vrai sur l'existant** : CI qui valide la sortie générée ; marquer expérimental ce qui ne passe pas | Rien de crédible sans cela |
+| 2 | **Garde hors pipeline** (`check` en PR, relevé nocturne) | Situation 1 ; fonctionne sur un dépôt existant, sans rien adopter d'autre |
+| 3 | **Modules** : consommateurs, différence d'interface, impact | Situation 2 ; même propriété, valeur sans adoption |
+| 4 | **Contrat de stack et `stack new`** pour un seul type (`storage-private`), sur les modules de l'organisation, flux compris | Situation 3 ; cœur de la standardisation |
+| 5 | **Conformité au contrat** dans `check` | Ferme la boucle créer → contrôler |
+| 6 | **`discover` minimal et `propose`** | Prérequis d'une demande automatisée |
+| 7 | **Schéma de demande, interface pour agents, console** | Le workflow complet pour une équipe non technique |
 
-Validation de bout en bout : un tenant vierge (périmètre `tenant`), amorcé par l'accélérateur
-IaC ALZ puis repris par `init --adopt`, une fois les points 1 à 3 verts ; le périmètre
-`subscriptions` se valide en simulant une entité dans une sous-hiérarchie de ce tenant, avec
-des policies posées au-dessus d'elle.
+Premières sources prises en charge : modules par tags Git, dépôts Azure DevOps, plus un mode
+« dossiers locaux » qui fonctionne partout. Registres privés et GitHub ensuite.
+
+Les chantiers 2 et 3 passent avant la génération parce qu'ils apportent de la valeur sur un
+dépôt existant en quelques minutes ; c'est ce qui installe l'outil dans la pipeline.
 
 ## 12. Modèle de confiance
 
-Lecture seule garantit l'innocuité, pas l'exactitude. Chaque sortie de `discover`, `audit`,
-`scan` et `preflight` :
-- **affiche sa couverture** : scopes lus, scopes invisibles (droits insuffisants, plan de
-  données, objets Entra), horodatage ; absence de preuve n'est pas preuve d'absence ;
-- porte **une preuve par constat** (ID de ressource, `fichier:ligne`) et **la règle
-  versionnée** qui l'a produit ;
-- est **déterministe** : même entrée, même sortie ;
-- accepte des **exceptions justifiées et versionnées** pour les faux positifs.
+Lecture seule garantit l'innocuité, pas l'exactitude. Chaque constat :
+- **affiche sa couverture** : ce qui a été lu, ce qui n'a pas pu l'être (droits insuffisants,
+  journal expiré), horodatage ; absence de preuve n'est pas preuve d'absence ;
+- porte **une preuve** (ID de ressource, identité et date de l'écriture, `fichier:ligne`) et
+  **la règle versionnée** qui l'a produit ;
+- est **déterministe** ;
+- accepte des **exceptions justifiées et versionnées**.
 
 L'outil s'exécute dans la pipeline de l'organisation, avec son identité, sans appel sortant
-hors API Azure et de la forge Git ; binaire signé, code ouvert. Les références restent la
-conformité Azure Policy et Defender for Cloud.
+hors API Azure et de la forge Git.
 
-**Décisions** (archétype, blueprint, rattachement) : `lzctl` exécute une **table de décision
-de l'organisation** (une table par défaut est fournie comme proposition). Chaque résultat cite
-la règle appliquée ; sans règle applicable, la demande va à un humain.
+## 13. Console et LLM : plus tard, et secondaires
 
-**Blueprints** : construits sur AVM ; `terraform test` ; checkov et PSRule for Azure (règles
-WAF) ; déploiement de nuit en bac à sable **sous les policies réelles de l'organisation**
-(zéro refus exigé) ; coût estimé ; versionnés et adoptés par les architectes de
-l'organisation, qui en sont propriétaires.
-
-## 13. Interface pour agents
-
-`lzctl` est un bon outil pour un agent : commandes déterministes, sorties JSON, lecture par
-défaut, écriture uniquement par PR. Un serveur MCP (`lzctl mcp`) expose les briques comme des
-outils.
-
-| Niveau | Outils | Effet |
+| | `lzctl` | Console |
 |---|---|---|
-| Lecture | `discover`, `audit`, `drift`, `scan`, `preflight`, `explain` (pourquoi cette décision, cette règle, cet écart) | Aucun |
-| Proposition | `propose` (génère le code d'une demande ou d'une remise en ordre et ouvre une PR) | Une branche et une PR ; rien n'est appliqué |
-| Application | Aucun | Réservée à la pipeline approuvée |
+| Pour qui | Ingénieurs plateforme, pipelines | Équipes non techniques |
+| Rôle | Contrat, génération, contrôles, PR | Recueillir un besoin en langage naturel, suivre la demande |
+| Logique métier | Toute | Aucune |
 
-Garde-fous propres aux agents :
-- **les données lues dans le tenant sont des données, pas des consignes** : noms, tags ou
-  descriptions de ressources peuvent contenir du texte piégé ; les sorties d'outils le
-  signalent comme contenu non fiable ;
-- les faits viennent des outils, jamais du modèle ; le modèle explique, résume et enchaîne ;
-- l'identité utilisée est celle de l'agent, en lecture seule, plus une application Git qui ne
-  peut qu'ouvrir des PR ; chaque appel d'outil est journalisé ;
-- sorties bornées et paginées, schémas stables et versionnés, codes d'erreur explicites.
+- Le LLM traduit un besoin en **demande typée** ; `lzctl` produit le contrat, le code et la
+  PR. Le LLM n'écrit pas le Terraform.
+- Le LLM s'exécute **dans le tenant du client**.
+- `lzctl` reste complet sans LLM : une demande s'écrit aussi à la main.
+- La PR issue de la console passe par les mêmes contrôles que celle d'un ingénieur.
+- Les données lues dans le tenant (noms, tags, descriptions) sont des données, pas des
+  consignes.
 
-Usages visés : un assistant de remise en ordre qui enchaîne découverte, audit et plan de
-correction ; l'agent de cadrage de la console, qui appelle le résolveur ; l'agent de revue,
-qui explique une PR à l'équipe plateforme. Complémentaire du serveur MCP Azure de Microsoft :
-celui-ci donne accès aux ressources, `lzctl` apporte les règles et le contexte des landing
-zones.
+## 14. Indicateurs de succès
 
-## 14. Questions ouvertes
-- `discover` : quel format pour le modèle de l'existant (fichier versionné dans Git, ou
-  produit à chaque exécution) ?
-- `scan` : lire les dépôts en local, ou par les API GitHub et Azure DevOps ?
-- `preflight` : évaluer les policies par simulation locale des règles, ou par l'API What-If
-  et l'évaluation de conformité d'Azure ?
-- Surcharge des templates : par dossier de templates de l'organisation, ou par un catalogue
-  de modules déclaré dans `lzctl.yaml` ?
-- Nom des commandes : `discover` remplace-t-il `assess` et `status --live`, ou les complète ?
+| Indicateur | Cible indicative |
+|---|---|
+| Déploiements ayant écrasé un changement hors pipeline sans avertissement | Zéro |
+| Délai entre une écriture hors pipeline et son signalement | Moins de 24 heures |
+| Versions de modules publiées avec rapport d'impact | 100 % |
+| Écart entre la version courante d'un module et celle de ses consommateurs | En baisse, suivi par module |
+| Délai entre une demande de stack et une PR prête à valider | Moins d'une heure |
+
+## 15. Hypothèses à vérifier et questions ouvertes
+
+Hypothèses techniques, à confirmer avant de construire :
+- le contenu OpenAPI importé dans API Management n'est pas relu par le provider Terraform, ce
+  qui expliquerait l'absence de dérive dans le plan ;
+- le journal d'activité Azure (90 jours) suffit à attribuer une écriture à une identité, pour
+  les types de ressources visés.
+
+Baseline à faire avant chaque brique : outils de comparaison OpenAPI, bibliothèques d'analyse
+de configuration Terraform, capacités exactes de Renovate sur les modules par tags Git, outils
+existants de différence d'interface entre versions de module.
+
+Questions ouvertes :
+- Le mode de distribution « dépôt de modules + tags Git » est-il assez répandu pour être le
+  premier pris en charge ? À confirmer auprès de pairs.
+- `module impact` : exécuter les plans dans les pipelines des consommateurs, ou depuis un
+  poste disposant des accès ?
+- Contrat de stack : un fichier par stack, ou une section de `lzctl.yaml` ?
+- Vocabulaire : « stack » dans l'outil et « platform » dans la console, ou un seul terme ?
+- Le chantier 4 (contrat de stack) doit-il passer avant les chantiers 2 et 3 ?

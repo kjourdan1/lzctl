@@ -16,4 +16,9 @@
 | 2026-11-13 | Priorité après l'étape 1 | Conception, attente entre équipes et flux : contexte en graphe, matrice des flux, plan de l'environnement, couverture, puis MCP |
 | 2026-11-13 | Plan de l'environnement | Concept repris de Floorplan (carte à niveaux, demande en pointillé), format propre à l'infrastructure ; Mermaid d'abord |
 | 2026-11-13 | Hors catalogue | Un LLM propose une architecture typée par MCP (hypothèses, questions, briques à créer) ; `lzctl` valide et dessine, ne génère pas de code |
+| 2026-11-14 | PRD créé | `prd.md` (format léger) et `addendum.md` |
+| 2026-11-14 | Format d'une brique | Module Terraform ordinaire et fichier de métadonnées (description, paramètres, flux déclarés) |
+| 2026-11-14 | Emplacement du catalogue | Dépôt d'infrastructure à part pour le tenant professionnel : catalogue, demandes, stacks |
+| 2026-11-14 | Stockage de Cockpit | Table Storage |
+| 2026-11-14 | Code existant et README | Tri reporté à l'étape d'architecture |
 | 2026-11-13 | Entrées et sortie | Demande, catalogue, contexte de la plateforme → une PR (stack, contrat, README, demande d'origine) |
